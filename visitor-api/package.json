@@ -1,0 +1,15 @@
+{
+  "name": "rmr-visitors",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute rmr-visitors --remote --file schema.sql",
+    "db:init:local": "wrangler d1 execute rmr-visitors --local --file schema.sql",
+    "db:reset:local": "wrangler d1 execute rmr-visitors --local --command \"DELETE FROM cells;\""
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

@@ -1,0 +1,13 @@
+name = "rmr-visitors"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+# Comma-separated origins allowed to call the API.
+ALLOWED_ORIGINS = "https://rmrtechdev.github.io,http://localhost:5173,http://localhost:4173"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rmr-visitors"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+

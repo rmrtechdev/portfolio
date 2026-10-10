@@ -1,86 +1,28 @@
 {
   "homepage": "https://rmrtechdev.github.io/portfolio",
   "name": "portfolio",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
-  "dependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@emailjs/browser": "^3.10.0",
-    "@emotion/react": "^11.11.1",
-    "@emotion/styled": "^11.10.4",
-    "@fullcalendar/core": "^5.11.3",
-    "@fullcalendar/daygrid": "^5.11.3",
-    "@fullcalendar/interaction": "^5.11.3",
-    "@fullcalendar/list": "^5.11.3",
-    "@fullcalendar/react": "^5.11.2",
-    "@fullcalendar/timegrid": "^5.11.3",
-    "@mui/material": "^5.14.5",
-    "@nivo/bar": "^0.80.0",
-    "@nivo/core": "^0.79.0",
-    "@nivo/geo": "^0.80.0",
-    "@nivo/line": "^0.79.1",
-    "@nivo/pie": "^0.80.0",
-    "@testing-library/react": "^12.1.2",
-    "@testing-library/user-event": "^13.5.0",
-    "@tweenjs/tween.js": "^18.6.4",
-    "axios": "^1.4.0",
-    "chart.js": "^3.9.1",
-    "drei": "2.2.17",
-    "encom-globe-react": "^0.0.3",
-    "express": "~4.3.0",
-    "jquery": "^3.7.0",
-    "jquery-ui": "~1.10.5",
-    "postcss": "^8.4.24",
-    "prop-types": "^15.7.2",
-    "pusher.color": "^0.2.4",
-    "quadtree2": "~0.5.3",
-    "react": "^18",
-    "react-chartjs-2": "^4.3.1",
-    "react-dom": "^18",
-    "react-icons": "^4.3.1",
-    "react-intersection-observer": "^8.33.1",
-    "react-lazyload": "^3.2.1",
-    "react-pro-sidebar": "^0.7.1",
-    "react-rotating-text": "^1.4.1",
-    "react-router-dom": "^6.2.1",
-    "react-scripts": "^5.0.0",
-    "react-typewriter-effect": "^1.1.0",
-    "request": "~2.34.0",
-    "serve-favicon": "~2.0.0",
-    "three": "^0.122.0",
-    "vec2": "^1.6.1",
-    "web-vitals": "^2.1.4",
-    "yup": "^0.32.11"
-  },
+  "type": "module",
   "scripts": {
-    "start": "set PORT=3000 && react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "@emailjs/browser": "^3.12.1",
+    "@react-three/fiber": "^8.18.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.180.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
-    "browserify": "~3.41.0",
-    "gh-pages": "^5.0.0",
-    "minimist": "0.0.8"
+    "@vitejs/plugin-react": "^4.7.0",
+    "gh-pages": "^6.3.0",
+    "vite": "^5.4.21"
   }
 }
