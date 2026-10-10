@@ -497,8 +497,8 @@ button {
   left: 6px;
   bottom: 6px;
   z-index: 46;
-  width: 78px;
-  height: 78px;
+  width: 96px;
+  height: 96px;
   color: var(--mid);
   opacity: 0.85;
 }
