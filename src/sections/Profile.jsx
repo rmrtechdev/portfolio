@@ -6,7 +6,7 @@ import { useTypeOnView } from '../fx/hooks';
 export function Head({ text, id }) {
   const [ref, { shown }] = useTypeOnView(text, { speed: 140, from: 1 });
   return (
-    <h2 className="head" ref={ref} id={id} aria-label={text}>
+    <h2 className="head rise" ref={ref} id={id} aria-label={text}>
       <span aria-hidden="true">{shown}</span>
     </h2>
   );
@@ -47,7 +47,7 @@ export function Team() {
         {TEAM.map((m, i) => (
           <article key={m.name} className={m.vacant ? 'pf-card vacant' : 'pf-card'}>
             <p className="pf-code nav-font">{m.code}</p>
-            <h3 className="pf-name">{m.name}</h3>
+            <h3 className="pf-name rise">{m.name}</h3>
             <p className="pf-copy">{m.copy}</p>
             <div className="pf-stage" ref={(el) => (stages.current[i] = el)}>
               {m.vacant && (

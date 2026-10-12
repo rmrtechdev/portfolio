@@ -1,32 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEMOS, PROJECTS, SERVICES } from '../data';
-import { REDUCED, WEBGL, pad } from '../env';
+import { REDUCED, pad } from '../env';
 import { GlitchBox } from '../fx/FxLayer';
 import { Chips, Head } from './Profile';
 
 export function Services() {
-  const pin = useRef(null);
-  const stage = useRef(null);
   const cards = useRef(null);
   const [box, setBox] = useState(null);
   useEffect(() => {
     let disposeArt;
-    let disposeStage;
     let cancelled = false;
     import('../fx/serviceArt').then(({ runServiceArt }) => !cancelled && (disposeArt = runServiceArt(cards.current)));
-    if (WEBGL && !REDUCED) import('../three/workstation').then(({ initWorkstation }) => !cancelled && (disposeStage = initWorkstation(stage.current, pin.current)));
     return () => {
       cancelled = true;
       disposeArt?.();
-      disposeStage?.();
     };
   }, []);
   return (
     <section id="services" className="section">
       <Head text="Stack" />
-      <div className="svc-pin" ref={pin}>
+      <div className="svc-pin">
         <div className="svc-scene">
-          <div className="svc-stage" ref={stage} />
+          <div className="svc-stage" />
           <p className="svc-meta nav-font">WebGL · three.js · procedural · post FX — scroll to change the look, drag to rotate</p>
         </div>
         <div className="svc-grid" ref={cards}>
@@ -41,7 +36,7 @@ export function Services() {
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setBox({ title: s.title, text: s.detail }))}
             >
               <p className="sa-k nav-font">{s.kicker}</p>
-              <h3 className="sa-title">{s.title}</h3>
+              <h3 className="sa-title rise">{s.title}</h3>
               <p className="sa-copy">{s.copy}</p>
               <div className="sa-art">
                 <canvas data-art={s.art} aria-hidden="true" />
@@ -104,7 +99,7 @@ export function Work() {
             <p className="pj-k nav-font">
               P/{pad(i + 1)} — {p.status}
             </p>
-            <h3 className="pj-title">{p.title}</h3>
+            <h3 className="pj-title rise">{p.title}</h3>
             <p className="pj-copy">{p.summary}</p>
             <div className="pj-media">
               <PreviewVideo src={p.video} poster={p.poster} label={`${p.title} preview`} />

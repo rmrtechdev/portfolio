@@ -11,90 +11,29 @@ export const SECTIONS = [
   ['contact', 'Contact'],
 ];
 
-function drawSnake(ctx, W, H, prog) {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, W, H);
-  const cell = Math.max(10, Math.round(Math.min(W, H) / 26));
-  const cols = Math.floor(W / cell);
-  const rowY = Math.round(H / 2 / cell) * cell;
-  ctx.fillStyle = '#0c0c0c';
-  for (let y = 0; y < H; y += cell) for (let x = 0; x < W; x += cell) ctx.fillRect(x, y, 1, 1);
-  const head = Math.floor(cols * prog);
-  for (let c = 0; c < cols; c++) {
-    const px = c * cell + cell * 0.12;
-    ctx.fillStyle = c < head ? 'rgba(8,253,216,.14)' : '#161616';
-    if (c < head) ctx.fillRect(px, rowY - cell * 0.26, cell * 0.76, cell * 1.52);
-    else ctx.fillRect(px, rowY + cell * 0.1, cell * 0.76, cell * 0.8);
-  }
-  for (let s = 0; s < 6; s++) {
-    const c = head - s;
-    if (c < 0) continue;
-    ctx.fillStyle = `rgba(${8 + s * 49},${253 - s * 30},${216 - s * 7},${1 - s * 0.15})`;
-    ctx.fillRect(c * cell + cell * 0.12, rowY - cell * 0.26, cell * 0.76, cell * 1.52);
-  }
-  if (head < cols) {
-    ctx.save();
-    ctx.shadowColor = '#ff69b4';
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(head * cell + cell * 0.12, rowY - cell * 0.26, cell * 0.76, cell * 1.52);
-    ctx.restore();
-  }
-}
-
-const BARS = 8;
-
-export function Loader({ ready, onDone }) {
-  const cv = useRef(null);
+/** Black cover with the load count; the loading strands are drawn by the world canvas, which sits above it. */
+export function Loader({ ready, onProgress, onComplete }) {
   const [pct, setPct] = useState(0);
-  const [phase, setPhase] = useState('loading');
-  const n = useRef(0);
   const readyRef = useRef(ready);
   readyRef.current = ready;
 
   useEffect(() => {
-    const ctx = cv.current.getContext('2d');
-    const fit = () => {
-      const dpr = Math.min(devicePixelRatio || 1, 2);
-      cv.current.width = innerWidth * dpr;
-      cv.current.height = innerHeight * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    fit();
-    addEventListener('resize', fit);
+    let n = 0;
     const timer = setInterval(() => {
-      n.current = Math.min(readyRef.current ? 100 : 98, n.current + (readyRef.current ? 16 : 2 + Math.random() * 6));
-      setPct(Math.floor(n.current));
-      if (n.current >= 100) {
+      n = Math.min(readyRef.current ? 100 : 98, n + (readyRef.current ? 16 : 2 + Math.random() * 6));
+      setPct(Math.floor(n));
+      onProgress(n / 100);
+      if (n >= 100) {
         clearInterval(timer);
-        setPhase('done');
-        onDone();
-        setTimeout(() => setPhase('gone'), 1100);
+        onComplete();
       }
     }, 140);
-    let raf;
-    const frame = () => {
-      raf = requestAnimationFrame(frame);
-      drawSnake(ctx, innerWidth, innerHeight, Math.min(0.86, (n.current / 100) * 0.98) / 0.86);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => {
-      clearInterval(timer);
-      cancelAnimationFrame(raf);
-      removeEventListener('resize', fit);
-    };
+    return () => clearInterval(timer);
   }, []);
 
-  if (phase === 'gone') return null;
   return (
-    <div className={`loader ${phase}`} aria-hidden="true">
-      <div className="loader-bars">
-        {Array.from({ length: BARS }, (_, i) => (
-          <i key={i} style={{ '--i': i }} />
-        ))}
-      </div>
-      <canvas ref={cv} />
-      <div className="loader-num">{Math.min(99, pct)}%</div>
+    <div className="loader" aria-hidden="true">
+      {pct < 100 && <div className="loader-num">{pct}%</div>}
     </div>
   );
 }

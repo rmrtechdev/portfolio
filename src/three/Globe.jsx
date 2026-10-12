@@ -194,7 +194,8 @@ function HomeMarker({ position }) {
   );
 }
 
-function Earth({ home, active, spin, visitors, homeLabel, tip }) {
+/** The interactive globe group; World.jsx places it in the shared scene, Globe below wraps it for reduced motion. */
+export function Earth({ home, active, spin, visitors, homeLabel, tip }) {
   const { camera, gl, size } = useThree();
   const clusters = useMemo(() => cluster(visitors?.cells ?? []), [visitors]);
   const world3 = useRef();

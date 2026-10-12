@@ -159,6 +159,9 @@ export const DEMOS = [
 export const BRIEF_NEEDS = ['Full-time role', 'Contract project', 'eCommerce', 'AI / LLM integration', '3D / WebGL', 'Something else'];
 export const BRIEF_TIMELINES = ['ASAP', '1–3 months', '3–6 months', 'Just exploring'];
 
+// Hero screen order, independent of the Work list; panels are placed by position in this array.
+export const REEL = ['ASSISTABOT', 'SALEOR', 'SFSHOWING', 'CHATROOM', 'COMMERCE', 'JSX3'].map((k) => PROJECTS.find((p) => p.subject === k));
+
 export const HOME = { lat: 40.7128, lng: -74.006, label: 'NYC', tag: 'Source code' };
 
 export const TEAM = [

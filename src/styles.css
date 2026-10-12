@@ -103,19 +103,11 @@ html::-webkit-scrollbar {
   transform: translate(0, -50%);
 }
 body {
-  background: var(--bg);
+  background: transparent;
   color: var(--fg);
   font: 400 15px/1.55 var(--body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-}
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  pointer-events: none;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px);
 }
 /* gobold's invert: a tinted, crushed inversion rather than a plain negative. */
 body.site-inverted::after {
@@ -286,52 +278,23 @@ button {
   -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
 }
 
-/* Loader */
+/* Loader: a black cover; the strand layer draws the loading animation above it. */
 .loader {
   position: fixed;
   inset: 0;
   z-index: 700;
-}
-.loader canvas,
-.loader-bars {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.loader canvas,
-.loader-num {
-  transition: opacity 0.2s;
-}
-.loader.done canvas,
-.loader.done .loader-num {
-  opacity: 0;
-}
-/* Exit: columns retract upward in a stagger, each trailing a cyan scan front. */
-.loader-bars {
-  display: flex;
-}
-.loader-bars i {
-  flex: 1;
-  margin-right: -1px;
   background: #000;
-  border-bottom: 1px solid transparent;
-  transition: transform 0.6s cubic-bezier(0.76, 0, 0.24, 1) calc(0.12s + var(--i) * 0.045s), border-color 0.1s 0.1s;
-}
-.loader.done .loader-bars i {
-  transform: translateY(-101%);
-  border-color: var(--cyan);
-  box-shadow: 0 1px 14px rgba(var(--cyan-rgb), 0.55);
 }
 .loader-num {
-  position: absolute;
+  position: fixed;
   left: 0;
   bottom: 0;
+  z-index: 720;
   padding: 0 0.15em 0.02em 0.04em;
   font: 700 clamp(6rem, 16vw, 15rem) / 0.9 var(--display);
   letter-spacing: -0.05em;
   color: var(--pink);
-  background: #000;
+  pointer-events: none;
 }
 
 /* Top bar */
@@ -493,27 +456,6 @@ button {
   min-height: 560px;
   overflow: hidden;
 }
-.hero-stage {
-  position: absolute;
-  inset: 0;
-  /* Only the last strip falls off, so the floor stays and just dissolves at the section seam. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 90%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 90%, transparent 100%);
-}
-.hero-stage::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: 12%;
-  pointer-events: none;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  -webkit-mask-image: linear-gradient(to top, #000 30%, transparent);
-  mask-image: linear-gradient(to top, #000 30%, transparent);
-}
-.hero-stage canvas {
-  touch-action: pan-y;
-}
 .hero-fallback {
   position: absolute;
   inset: 0;
@@ -641,26 +583,6 @@ button {
 .hero-ring:hover .hero-ring-core {
   background: var(--pink);
   color: #000;
-}
-/* Slow cyan scan sweeping the hero. */
-.hero::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 4;
-  height: 30vh;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  background: linear-gradient(transparent, rgba(var(--cyan-rgb), 0.05) 94%, rgba(var(--cyan-rgb), 0.35));
-  animation: hero-scan 7s linear infinite;
-}
-@keyframes hero-scan {
-  from {
-    transform: translateY(-100%);
-  }
-  to {
-    transform: translateY(420%);
-  }
 }
 /* Specializing in */
 .spec {
@@ -824,143 +746,6 @@ button {
   color: var(--pink);
 }
 
-/* Video band */
-.vidband {
-  position: relative;
-  margin: 0 var(--gutter);
-  height: min(56vw, 86svh);
-  overflow: hidden;
-  background: #000;
-}
-.vidband video,
-.vb-preview {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-/* Grey the footage, then colourise it through the ::before tint (fx1 duotone, fx2 mono, fx3 natural, fx4 cyan). */
-.vidband video {
-  filter: grayscale(1) contrast(1.12) brightness(0.55);
-}
-.vidband.fx3 video {
-  filter: saturate(1.05) brightness(0.5);
-}
-.vidband::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  mix-blend-mode: color;
-  background: linear-gradient(115deg, rgba(var(--cyan-rgb), 0.75), rgba(var(--pink-rgb), 0.7));
-  transition: opacity 0.4s;
-}
-.vidband.fx2::before,
-.vidband.fx3::before {
-  opacity: 0;
-}
-.vidband.fx4::before {
-  background: rgba(var(--cyan-rgb), 0.8);
-}
-.vidband::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 55% at 50% 50%, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.2) 75%, rgba(0, 0, 0, 0.45)),
-    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px);
-}
-.vb-preview {
-  z-index: 1;
-  background-size: 1000% 400%;
-  background-repeat: no-repeat;
-}
-.vb-statement {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 4;
-  width: min(84%, 22ch);
-  transform: translate(-50%, -50%);
-  text-align: center;
-  font: 600 clamp(1.8rem, 4.2vw, 4.2rem) / 1.12 var(--display);
-  letter-spacing: -0.035em;
-  color: #f4f5f7;
-  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55);
-  pointer-events: none;
-}
-.vb-controls {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.vb-controls button {
-  padding: 5px 10px;
-  font-size: 0.72rem;
-  color: var(--mid);
-  background: #000;
-  border: 1px solid var(--cyan);
-  cursor: pointer;
-}
-.vb-controls button:hover {
-  background: var(--pink);
-  color: #000;
-}
-.vb-seek {
-  --pos: 0%;
-  width: 150px;
-  height: 20px;
-  background: #000;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  touch-action: none;
-}
-.vb-seek::-webkit-slider-runnable-track {
-  height: 1px;
-  background: linear-gradient(to right, #fff 0 var(--pos), var(--ghost) var(--pos) 100%);
-}
-.vb-seek::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 7px;
-  height: 7px;
-  margin-top: -3px;
-  background: var(--cyan);
-}
-.vb-seek::-moz-range-track {
-  height: 1px;
-  background: var(--ghost);
-}
-.vb-seek::-moz-range-progress {
-  height: 1px;
-  background: #fff;
-}
-.vb-seek::-moz-range-thumb {
-  width: 7px;
-  height: 7px;
-  border: 0;
-  border-radius: 0;
-  background: var(--cyan);
-}
-.vb-mini {
-  position: absolute;
-  right: 140px;
-  bottom: 30px;
-  width: 160px;
-  height: 90px;
-  border: 1px solid #5f5f5f;
-  background-size: 1600px 360px;
-  background-repeat: no-repeat;
-}
-
 /* Moving text */
 .moving {
   position: relative;
@@ -978,6 +763,12 @@ button {
   color: var(--ghost);
   filter: url(#threshStrong);
   animation: marquee 90s linear infinite;
+}
+/* Sentence-length marquee: more of the line on screen at once, with the lighter melt so smaller glyphs
+   keep their counters open. */
+.moving.small .moving-track {
+  font-size: clamp(2.2rem, 6vw, 5.5rem);
+  filter: url(#thresh);
 }
 @keyframes marquee {
   to {
@@ -1039,15 +830,6 @@ button {
 .snake-overlay img.on {
   visibility: visible;
 }
-.snake-overlay::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, rgba(0, 0, 0, 0.55) 1px 2px, transparent 2px 5px);
-}
 .snake-play {
   position: absolute;
   left: 50%;
@@ -1074,6 +856,55 @@ button {
   background: #000;
   padding: 2px 8px;
   font-size: 0.72rem;
+}
+
+/* Headlines rise into a fixed window: translate and clip-path move by the same fraction on the same
+   curve, so the visible slot stays put while the text slides up through it. */
+.rise {
+  transform: translateY(100%) skewY(6deg);
+  clip-path: inset(-20% -5% 100% -5%);
+  transition: transform 0.6s cubic-bezier(0.2, 0.9, 0.25, 1), clip-path 0.6s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.rise.in {
+  transform: none;
+  clip-path: inset(-20% -5% -20% -5%);
+}
+
+/* The shared 3D world (three/World.jsx), fixed behind the whole page; above the loader cover while
+   loading. Body has no background of its own, or it would paint over this layer. */
+.world {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+.world.loading {
+  z-index: 710;
+}
+.world-labels {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+/* The hero room and the About globe are in the world layer, so these sections (and main around them) pass
+   pointer events through to it everywhere except their own controls. */
+body,
+#root,
+#root > main {
+  pointer-events: none;
+}
+body > *,
+#root > *,
+main > * {
+  pointer-events: auto;
+}
+.hero,
+.spec {
+  pointer-events: none;
+}
+.hero .hud-toggle,
+.hero .hero-ring {
+  pointer-events: auto;
 }
 
 /* Sections + giant heads */
@@ -1237,14 +1068,11 @@ button {
   top: calc(50svh - min(41vw, 40svh));
   height: min(82vw, 80svh);
 }
+/* Empty box: three/World.jsx draws the strand workstation where this sits and reads drags from it. */
 .svc-stage {
   position: absolute;
   inset: 0;
   cursor: grab;
-}
-.svc-stage canvas {
-  width: 100% !important;
-  height: 100% !important;
   touch-action: pan-y;
 }
 .svc-meta {
@@ -1293,11 +1121,6 @@ button {
 }
 .sa-art {
   height: clamp(170px, 18vw, 240px);
-  background: #030000;
-}
-.sa-card.lit .sa-art,
-.sa-card:hover .sa-art {
-  background: #080000;
 }
 .sa-art canvas {
   width: 100%;
@@ -1338,7 +1161,6 @@ button {
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #000;
 }
 .pj-media video {
   width: 100%;
@@ -1471,7 +1293,6 @@ button {
 .demo-frame {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: #000;
   border: 1px solid var(--line);
   overflow: hidden;
 }
@@ -1767,13 +1588,6 @@ button {
   .spec {
     --spec-line: calc(2.8 * 1.5rem);
   }
-  .vidband {
-    height: max(56vw, 320px);
-  }
-  .vb-statement {
-    width: 88%;
-    font-size: 7vw;
-  }
   .chip {
     margin-right: 0;
   }
@@ -1786,10 +1600,9 @@ button {
   .svc-pin {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* No room to pin it beside the cards: the strand workstation moves behind them (three/World.jsx). */
   .svc-scene {
-    position: relative;
-    top: 0;
-    height: 70vw;
+    display: none;
   }
   .hero-kicker {
     left: var(--gutter);
@@ -1828,11 +1641,15 @@ button {
   .ik-cur,
   .hero-ring-text,
   .hero-ring-dash,
-  .hero::after,
   .cybr:hover::after {
     animation: none;
   }
   .cybr:hover::after {
     opacity: 0;
+  }
+  .rise {
+    transform: none;
+    clip-path: none;
+    transition: none;
   }
 }
