@@ -6,7 +6,6 @@ export const SECTIONS = [
   ['top', 'Main'],
   ['about', 'About'],
   ['team', 'Profile'],
-  ['faq', 'FAQ'],
   ['services', 'Stack'],
   ['work', 'Work'],
   ['contact', 'Contact'],
@@ -123,7 +122,6 @@ export function TopBar({ started }) {
       <div className="brand-block">
         <a href="#top" className="brand">
           {brand.shown}
-          {brand.done && <sup>™</sup>}
         </a>
         <span className="tagline">{brand.done ? tag.shown : ' '}</span>
         <ul className="badges">
@@ -170,29 +168,6 @@ export function SideRail() {
         </a>
       ))}
     </nav>
-  );
-}
-
-export function Stamp() {
-  return (
-    <a href="#top" className="stamp" aria-label="Back to top">
-      <svg viewBox="0 0 100 100" aria-hidden="true">
-        <defs>
-          <path id="stamp-arc" d="M 6 48 A 44 44 0 0 0 94 48" />
-        </defs>
-        <g className="stamp-globe">
-          <circle cx="50" cy="44" r="22" />
-          <ellipse cx="50" cy="44" rx="9" ry="22" />
-          <ellipse cx="50" cy="44" rx="22" ry="8" />
-          <path d="M28 44h44M50 22v44" />
-        </g>
-        <text>
-          <textPath href="#stamp-arc" startOffset="50%" textAnchor="middle">
-            R.M.ROMAN · NYC · {new Date().getFullYear()}
-          </textPath>
-        </text>
-      </svg>
-    </a>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { COARSE, REDUCED } from '../env';
 
 // Blur then alpha-threshold: rounds glyph corners into the "melted" display type.
@@ -168,4 +168,43 @@ export function Trail({ color = '255,255,255', width = 1, life = 700 }) {
     };
   }, []);
   return <canvas ref={ref} className="trail" aria-hidden="true" />;
+}
+
+/** Glitch-in dialog that types `box.text`; closes on ×, Escape, or a click outside. */
+export function GlitchBox({ box, onClose }) {
+  const [typed, setTyped] = useState('');
+  const [phase, setPhase] = useState('in');
+  useEffect(() => {
+    if (!box) return;
+    setPhase('in');
+    let raf;
+    const t0 = performance.now();
+    const step = (now) => {
+      const n = REDUCED ? box.text.length : Math.min(box.text.length, Math.floor((now - t0) / 10));
+      setTyped(box.text.slice(0, n) + (n < box.text.length ? '▌' : ''));
+      if (n < box.text.length) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    const onKey = (e) => e.key === 'Escape' && setPhase('out');
+    addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      removeEventListener('keydown', onKey);
+    };
+  }, [box]);
+  useEffect(() => {
+    if (phase !== 'out') return;
+    const id = setTimeout(onClose, 500);
+    return () => clearTimeout(id);
+  }, [phase]);
+  if (!box) return null;
+  return (
+    <div className="gbox-scrim" onClick={() => setPhase('out')}>
+      <div className={`gbox ${phase}`} role="dialog" aria-label={box.title} onClick={(e) => e.stopPropagation()}>
+        <button className="gbox-x" onClick={() => setPhase('out')} aria-label="Close" autoFocus>×</button>
+        <span className="gbox-t">{box.title} /</span>
+        <span className="gbox-d">{typed}</span>
+      </div>
+    </div>
+  );
 }

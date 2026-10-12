@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { FAQ, TEAM, openMail } from '../data';
+import { useEffect, useRef } from 'react';
+import { TEAM } from '../data';
 import { WEBGL, pad } from '../env';
 import { useTypeOnView } from '../fx/hooks';
 
@@ -72,41 +72,6 @@ export function Team() {
             </dl>
             <Chips items={m.tags} />
           </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function Faq() {
-  const [open, setOpen] = useState(() => new Set());
-  const toggle = (i) =>
-    setOpen((s) => {
-      const n = new Set(s);
-      n.has(i) ? n.delete(i) : n.add(i);
-      return n;
-    });
-  return (
-    <section id="faq" className="section">
-      <Head text="FAQ" />
-      <div className="faq">
-        {FAQ.map(([q, a], i) => (
-          <div key={q} className={open.has(i) ? 'faq-item open' : 'faq-item'}>
-            <button className="faq-q" onClick={() => toggle(i)} aria-expanded={open.has(i)}>
-              {q} <span>{open.has(i) ? '[-]' : '[+]'}</span>
-            </button>
-            {open.has(i) && (
-              <p className="faq-a">
-                {a}
-                {i === FAQ.length - 1 && (
-                  <>
-                    {' '}
-                    <a href="#contact" onClick={openMail}>Email me ↗</a>
-                  </>
-                )}
-              </p>
-            )}
-          </div>
         ))}
       </div>
     </section>

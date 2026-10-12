@@ -1,13 +1,14 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { DISCIPLINES, GIANT_LEAD, HOME, MARQUEE, PROJECTS, STATEMENT } from '../data';
-import { COARSE, REDUCED, THREE_D, WEBGL, media } from '../env';
+import { REDUCED, THREE_D, WEBGL, media } from '../env';
 import { Trail } from '../fx/FxLayer';
-import { scramble, useInView } from '../fx/hooks';
+import { useInView } from '../fx/hooks';
 import { loadVisits } from '../fx/visitors';
 
 const HeroScene = lazy(() => import('../three/HeroScene'));
 const Globe = lazy(() => import('../three/Globe'));
-const REEL = PROJECTS.filter((p) => p.video);
+// Hero screen order, independent of the Work list; panels are placed by position in this array.
+const REEL = ['ASSISTABOT', 'SALEOR', 'SFSHOWING', 'CHATROOM', 'COMMERCE', 'JSX3'].map((k) => PROJECTS.find((p) => p.subject === k));
 
 export function Hero({ onReady }) {
   const [ref, inView] = useInView({ threshold: 0 });
@@ -30,7 +31,7 @@ export function Hero({ onReady }) {
       </div>
       {THREE_D && (
         <button className={thermal ? 'hud-toggle nav-font on' : 'hud-toggle nav-font'} onClick={() => setThermal(!thermal)} aria-pressed={thermal}>
-          <span aria-hidden="true">⌖</span> Thermal effect
+          <span aria-hidden="true">⌖</span> Spectral decloak
         </button>
       )}
       <p className="hero-kicker nav-font">
@@ -50,154 +51,52 @@ export function Hero({ onReady }) {
         </svg>
         <span className="hero-ring-core" aria-hidden="true">↓</span>
       </a>
-      <p className="hero-title" aria-hidden="true">{GIANT_LEAD}</p>
       <h1 className="sr-only">Raymond M. Roman — full-stack engineer</h1>
     </section>
   );
 }
 
-function GlitchBox({ box, onClose }) {
-  const [typed, setTyped] = useState('');
-  const [phase, setPhase] = useState('in');
+/** Types each item, holds, backspaces, then moves to the next, looping while `active`. */
+function useRotatingType(items, active) {
+  const [i, setI] = useState(0);
+  const [n, setN] = useState(0);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => {
-    if (!box) return;
-    setPhase('in');
-    let raf;
-    const t0 = performance.now();
-    const step = (now) => {
-      const n = Math.min(box.text.length, Math.floor((now - t0) / 16));
-      setTyped(box.text.slice(0, n) + (n < box.text.length ? '▌' : ''));
-      if (n < box.text.length) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    const close = setTimeout(() => setPhase('out'), 5000);
-    const onKey = (e) => e.key === 'Escape' && setPhase('out');
-    addEventListener('keydown', onKey);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(close);
-      removeEventListener('keydown', onKey);
-    };
-  }, [box]);
-  useEffect(() => {
-    if (phase !== 'out') return;
-    const id = setTimeout(onClose, 500);
+    if (!active || REDUCED) return;
+    const full = items[i];
+    let delay = deleting ? 35 : 70;
+    let next = () => setN(n + (deleting ? -1 : 1));
+    if (!deleting && n === full.length) (delay = 1800), (next = () => setDeleting(true));
+    else if (deleting && n === 0) (delay = 350), (next = () => (setDeleting(false), setI((i + 1) % items.length)));
+    const id = setTimeout(next, delay);
     return () => clearTimeout(id);
-  }, [phase]);
-  if (!box) return null;
-  return (
-    <div className={`gbox ${phase}`} role="dialog" aria-label={box.title}>
-      <button className="gbox-x" onClick={() => setPhase('out')} aria-label="Close">×</button>
-      <span className="gbox-t">{box.title} /</span>
-      <span className="gbox-d">{typed}</span>
-    </div>
-  );
-}
-
-function GiantLine({ text, desc, typing, active, hot, onHover, onOpen }) {
-  const ref = useRef(null);
-  return (
-    <p
-      className={['giant-line', hot && 'shov', active && 'hov', typing && 'twp'].filter(Boolean).join(' ')}
-      onPointerEnter={() => {
-        onHover(text);
-        if (!typing && !COARSE) scramble(ref.current);
-      }}
-      onPointerLeave={() => onHover(null)}
-      onClick={() => onOpen({ title: text, text: desc })}
-    >
-      <span className="seltxt" ref={ref}>{typing ?? text}</span>
-    </p>
-  );
+  }, [active, i, n, deleting]);
+  return REDUCED ? items[0] : items[i].slice(0, n);
 }
 
 export function Specializing() {
   const [ref, inView] = useInView({ threshold: 0 });
-  const [typed, setTyped] = useState(REDUCED ? DISCIPLINES.length : -1);
-  const [chars, setChars] = useState(0);
-  const [hover, setHover] = useState(null);
-  const [scrollHot, setScrollHot] = useState(null);
-  const [touched, setTouched] = useState(false);
-  const [box, setBox] = useState(null);
   const [visitors, setVisitors] = useState(null);
-  const linesRef = useRef(null);
+  const shown = useRotatingType(DISCIPLINES, inView);
 
   // Fetched the first time the globe is on screen, so it never competes with the hero.
   useEffect(() => {
     if (inView && !visitors) loadVisits().then((v) => v && setVisitors(v));
   }, [inView]);
 
-  // Lines type in sequence the first time the block enters view.
-  useEffect(() => {
-    if (!inView || typed !== -1) return;
-    setTyped(0);
-  }, [inView]);
-  useEffect(() => {
-    if (typed < 0 || typed >= DISCIPLINES.length) return;
-    const full = DISCIPLINES[typed][0];
-    if (chars >= full.length) {
-      setTyped(typed + 1);
-      setChars(0);
-      return;
-    }
-    const id = setTimeout(() => setChars(chars + 1), 34);
-    return () => clearTimeout(id);
-  }, [typed, chars]);
-
-  // Until the visitor interacts, the line nearest 75% of the viewport is highlighted.
-  useEffect(() => {
-    if (touched) return setScrollHot(null);
-    let ticking = false;
-    const pick = () => {
-      ticking = false;
-      const focus = innerHeight * 0.75;
-      let best = null;
-      let bestD = Infinity;
-      linesRef.current?.querySelectorAll('.giant-line').forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        if (r.bottom < 0 || r.top > innerHeight) return;
-        const d = Math.abs((r.top + r.bottom) / 2 - focus);
-        if (d < bestD) (bestD = d), (best = i);
-      });
-      setScrollHot(best);
-    };
-    const onScroll = () => !ticking && ((ticking = true), requestAnimationFrame(pick));
-    addEventListener('scroll', onScroll, { passive: true });
-    pick();
-    return () => removeEventListener('scroll', onScroll);
-  }, [touched]);
-
-  const lineText = (i) => {
-    if (typed > i || typed >= DISCIPLINES.length) return undefined;
-    if (typed === i) return DISCIPLINES[i][0].slice(0, chars) + '█';
-    return ' ';
-  };
-
   return (
     <section id="about" className="spec" ref={ref}>
-      {WEBGL && (
-        <div className="spec-globe">
-          <Suspense fallback={null}>
-            <Globe home={HOME} active={inView} spin={!REDUCED} visitors={visitors} />
-          </Suspense>
-        </div>
-      )}
-      <div className="giant" ref={linesRef} onPointerEnter={() => setTouched(true)}>
-        {DISCIPLINES.map(([text, desc], i) => (
-          <GiantLine
-            key={text}
-            text={text}
-            desc={desc}
-            typing={lineText(i)}
-            hot={scrollHot === i}
-            active={hover === text}
-            onHover={setHover}
-            onOpen={(b) => (setTouched(true), setBox(b))}
-          />
-        ))}
+      <div className="giant">
+        <p className="giant-line" aria-label={`${GIANT_LEAD} ${DISCIPLINES.join(', ')}`}>
+          <span className="giant-lead" aria-hidden="true">{GIANT_LEAD}</span>
+          <span className="giant-slot" aria-hidden="true">
+            {shown}
+            <span className="giant-caret" />
+          </span>
+        </p>
       </div>
       <p className="spec-hint nav-font">
-        Click a line · drag or click the globe
+        Drag or click the globe
         {visitors?.places > 0 && (
           <>
             {' · '}
@@ -205,7 +104,13 @@ export function Specializing() {
           </>
         )}
       </p>
-      <GlitchBox box={box} onClose={() => setBox(null)} />
+      {WEBGL && (
+        <div className="spec-globe">
+          <Suspense fallback={null}>
+            <Globe home={HOME} active={inView} spin={!REDUCED} visitors={visitors} />
+          </Suspense>
+        </div>
+      )}
     </section>
   );
 }

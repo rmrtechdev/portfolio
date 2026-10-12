@@ -8,6 +8,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const CODE = [
+  '# views.py',
   'class ToolCall(View):',
   '    def post(self, request):',
   '        msg = json.loads(request.body)',
@@ -18,6 +19,7 @@ const CODE = [
   '        )',
   '        return run_tools(reply)',
   '',
+  '// Globe.jsx',
   'export default function Globe() {',
   '  return <Canvas dpr={1}>',
   '    <Earth spin />',
@@ -34,11 +36,11 @@ function screenTexture() {
   ctx.fillRect(0, 0, 512, 384);
   ctx.font = '15px monospace';
   CODE.forEach((line, i) => {
-    ctx.fillStyle = i === 0 || i === 10 ? '#ff69b4' : '#9ad8c4';
-    ctx.fillText(line, 22, 34 + i * 22);
+    ctx.fillStyle = /^(#|\/\/)/.test(line) ? '#a3b8b1' : /^(class|export)/.test(line) ? '#ff69b4' : '#9ad8c4';
+    ctx.fillText(line, 22, 30 + i * 20);
   });
   ctx.fillStyle = '#08fdd8';
-  ctx.fillRect(22, 34 + CODE.length * 22 - 12, 9, 15);
+  ctx.fillRect(22, 30 + CODE.length * 20 - 12, 9, 15);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;

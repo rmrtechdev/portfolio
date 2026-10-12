@@ -17,14 +17,8 @@ export const SOCIALS = [
   { label: 'LinkedIn', href: 'https://www.linkedin.com/in/raymond-r-972804aa/' },
 ];
 
-export const GIANT_LEAD = 'R.M.Roman — engineer specializing in';
-export const DISCIPLINES = [
-  ['+Python / Django', 'ORM, auth, admin, Channels, REST and GraphQL APIs. The back end does the heavy lifting.'],
-  ['+React / Next.js', 'Server-rendered, responsive interfaces built to ship.'],
-  ['+3D on the web', 'Real-time Three.js in the browser. This page is the demo.'],
-  ['+Applied AI', 'LangGraph agents, MCP integrations, self-hosted models, and fine-tuning and distillation of open LLMs.'],
-  ['+Security-minded', 'Practised on OWASP crAPI, Hack The Box, and TryHackMe.'],
-];
+export const GIANT_LEAD = 'R.M.Roman — web dev specializing in';
+export const DISCIPLINES = ['Python / Django', 'React / Next.js', '3D on the web', 'Applied AI', 'Security-minded'];
 
 export const STATEMENT = 'I build web products end to end — from the data model to the deployed interface.';
 export const MARQUEE = 'Technology for sustainability';
@@ -63,7 +57,8 @@ export const PROJECTS = [
       'Next phases scoped with the client: PostHog funnels, commission inquiries, Printful print-on-demand',
     ],
     stack: ['Next.js', 'React Three Fiber', 'Three.js', 'Strapi', 'Stripe', 'Cloudinary', 'Vercel'],
-    poster: media('Images/placeholder.svg'),
+    video: media('video/sfshowing.mp4'),
+    poster: media('Images/portfolio-logos/SFShowingLogo.jpg'),
   },
   {
     title: 'Saleor Full-Stack Commerce',
@@ -150,6 +145,7 @@ export const PROJECTS = [
 ];
 
 export const DEMOS = [
+  { title: 'SF Showing — 3D art gallery', id: 'BBRo2mNWl9w' },
   { title: 'Python commerce back end', id: '6hH_RwDqG24' },
   { title: 'Shopperbot — browser automation', id: 'XoTLyJUBQmY' },
   { title: 'RESTful API', id: 'aOga6Q5upZE' },
@@ -160,17 +156,7 @@ export const DEMOS = [
   { title: 'Py-Invaders game', id: 'cFZGhK8BzUs' },
 ];
 
-export const FAQ = [
-  ['Are you open to full-time or contract work?', 'Both. I live in New York City and work on site, hybrid, or remote.'],
-  ['What is your core stack?', 'Python and Django on the server with REST and GraphQL APIs, React and Next.js in the browser, Docker and Linux underneath. LangGraph when the product needs agents, Three.js when the interface calls for 3D.'],
-  ['Can I see the code?', 'Public work is on GitHub. For anything private, I will walk you through the code on a call.'],
-  ['Do you build with LLMs?', 'Yes, from integration to the model itself. I build agentic workflows with LangGraph and LangChain, expose tools to assistants over MCP, deploy models locally on Ollama, and fine-tune and distill open models with LoRA on Apple Silicon (MLX). AssistaBot, for example, wires a local Llama 3.2 into Django through tool calling, with no third-party inference.'],
-  ['Is the Saleor storefront for sale?', 'Yes. It is a licensable, self-hosted commerce stack: you own your data and pay no marketplace fees.'],
-  ['How do you think about security?', 'I practise offensive security on OWASP crAPI, Hack The Box, and TryHackMe. Knowing how APIs get broken changes how I build them.'],
-  ['What is the fastest way to reach you?', 'Send a brief below, or open an email draft. Either lands in the same inbox.'],
-];
-
-export const BRIEF_NEEDS = ['Full-time role', 'Contract project', 'Saleor storefront', 'AI / LLM integration', '3D / WebGL', 'Something else'];
+export const BRIEF_NEEDS = ['Full-time role', 'Contract project', 'eCommerce', 'AI / LLM integration', '3D / WebGL', 'Something else'];
 export const BRIEF_TIMELINES = ['ASAP', '1–3 months', '3–6 months', 'Just exploring'];
 
 export const HOME = { lat: 40.7128, lng: -74.006, label: 'NYC', tag: 'Source code' };
@@ -215,6 +201,7 @@ export const SERVICES = [
     title: 'Python / Django back ends',
     copy: 'ORM, auth, admin, Channels. REST and GraphQL APIs over SQL designed around the queries it has to answer.',
     art: 'flow',
+    detail: 'Python and Django on the server with REST and GraphQL APIs: ORM, auth, admin, and Channels for real-time. The back end does the heavy lifting. The Chatroom server and AssistaBot are both built on it.',
     chips: [['Python'], ['Django', true], ['GraphQL', true], ['SQL'], ['REST'], ['Channels']],
     lit: true,
   },
@@ -223,6 +210,7 @@ export const SERVICES = [
     title: 'Applied AI / LLM engineering',
     copy: 'Agentic workflows on LangGraph and LangChain, tool calling and MCP integrations, self-hosted model deployment, LoRA fine-tuning and distillation, and visual interfaces that make model behaviour legible.',
     art: 'graph',
+    detail: 'From integration to the model itself. I build agentic workflows with LangGraph and LangChain, expose tools to assistants over MCP, deploy models locally on Ollama · MLX · llama.cpp, & finetune and distill open models with LoRA on Apple Silicon. AssistaBot wires a local Llama 3.2 into Django through tool calling, with no third-party inference.',
     chips: [['LangGraph', true], ['LangChain'], ['MCP'], ['Ollama'], ['MLX / LoRA', true], ['Llama · Qwen']],
   },
   {
@@ -230,6 +218,7 @@ export const SERVICES = [
     title: 'React / Next.js front ends',
     copy: 'Server-rendered, responsive, and fast on every screen.',
     art: 'hemisphere',
+    detail: 'Server-rendered, responsive interfaces built to ship. The Saleor storefront and Next.js Commerce both run on Vercel with server-rendered product, collection, and cart pages for speed and SEO.',
     chips: [['React'], ['Next.js', true], ['Tailwind'], ['Vercel']],
   },
   {
@@ -237,6 +226,7 @@ export const SERVICES = [
     title: 'Three.js / WebGL',
     copy: 'Real-time 3D, custom shaders, post-processing. Everything on this page.',
     art: 'dotsphere',
+    detail: 'Real-time Three.js in the browser, with React Three Fiber when the app is already in React. Custom GLSL shaders and post-processing. This page is the demo: the hero, the globe, this workstation, and the hologram are all live WebGL.',
     chips: [['Three.js', true], ['R3F'], ['GLSL'], ['WebGL']],
   },
   {
@@ -244,6 +234,7 @@ export const SERVICES = [
     title: 'Security-minded',
     copy: 'Practice on OWASP crAPI, Hack The Box, and TryHackMe shapes how I build APIs.',
     art: 'radar',
+    detail: 'I practise offensive security on OWASP crAPI, Hack The Box, and TryHackMe. Knowing how APIs get broken changes how I build them.',
     chips: [['OWASP'], ['crAPI', true], ['HTB'], ['THM']],
   },
   {
@@ -251,6 +242,7 @@ export const SERVICES = [
     title: 'Docker / Linux / Git',
     copy: 'Reproducible environments from laptop to production, behind Nginx and Gunicorn.',
     art: 'bars',
+    detail: 'Docker and Linux underneath every project, so the same build runs from laptop to production. The Saleor back end ships containerized, and the Chatroom server runs behind an Nginx reverse proxy and Gunicorn.',
     chips: [['Docker', true], ['Linux'], ['Git'], ['Nginx'], ['Gunicorn', true]],
     lit: true,
   },

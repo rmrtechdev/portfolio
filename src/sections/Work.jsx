@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEMOS, PROJECTS, SERVICES } from '../data';
 import { REDUCED, WEBGL, pad } from '../env';
+import { GlitchBox } from '../fx/FxLayer';
 import { Chips, Head } from './Profile';
 
 export function Services() {
   const pin = useRef(null);
   const stage = useRef(null);
   const cards = useRef(null);
+  const [box, setBox] = useState(null);
   useEffect(() => {
     let disposeArt;
     let disposeStage;
@@ -29,7 +31,15 @@ export function Services() {
         </div>
         <div className="svc-grid" ref={cards}>
           {SERVICES.map((s) => (
-            <article key={s.title} className={s.lit ? 'sa-card lit' : 'sa-card'}>
+            <article
+              key={s.title}
+              className={s.lit ? 'sa-card lit' : 'sa-card'}
+              role="button"
+              tabIndex={0}
+              aria-haspopup="dialog"
+              onClick={() => setBox({ title: s.title, text: s.detail })}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setBox({ title: s.title, text: s.detail }))}
+            >
               <p className="sa-k nav-font">{s.kicker}</p>
               <h3 className="sa-title">{s.title}</h3>
               <p className="sa-copy">{s.copy}</p>
@@ -41,6 +51,7 @@ export function Services() {
           ))}
         </div>
       </div>
+      <GlitchBox box={box} onClose={() => setBox(null)} />
     </section>
   );
 }

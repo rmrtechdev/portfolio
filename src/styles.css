@@ -381,11 +381,6 @@ button {
   text-decoration: none;
   min-width: 5ch;
 }
-.brand sup {
-  font-size: 0.42em;
-  vertical-align: 1.05em;
-  margin-left: 0.05em;
-}
 .tagline {
   font-weight: 500;
   color: #7d828c;
@@ -489,36 +484,6 @@ button {
 }
 .rail a:hover {
   color: var(--pink);
-}
-
-/* Emblem */
-.stamp {
-  position: fixed;
-  left: 6px;
-  bottom: 6px;
-  z-index: 46;
-  width: 96px;
-  height: 96px;
-  color: var(--mid);
-  opacity: 0.85;
-}
-.stamp:hover {
-  color: var(--pink);
-}
-.stamp svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.stamp-globe {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.4;
-}
-.stamp text {
-  fill: currentColor;
-  font: 700 8.4px var(--anon);
-  letter-spacing: 0.12em;
 }
 
 /* Hero */
@@ -697,78 +662,62 @@ button {
     transform: translateY(420%);
   }
 }
-.hero-title {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.12em;
-  font: 700 clamp(2rem, 5.2vw, 5.4rem) / 1.1 var(--display);
-  letter-spacing: -0.04em;
-  text-align: center;
-  white-space: nowrap;
-  color: #2c2f35;
-  pointer-events: none;
-}
-
 /* Specializing in */
 .spec {
+  --spec-line: calc(1.4 * clamp(1.5rem, 2.5vw, 3.2rem));
   position: relative;
   min-height: 100svh;
-  padding: 12vh calc(var(--rail) + var(--gutter)) 14vh var(--gutter);
+  padding: 10vh calc(var(--rail) + var(--gutter)) 6vh var(--gutter);
   overflow: hidden;
 }
+/* Starts below the line and hint (line + 16px gap + hint + breathing room); the sphere scales to this box's height, so the text never sits on it. */
 .spec-globe {
   position: absolute;
-  inset: 0;
+  inset: calc(10vh + var(--spec-line) + 64px) 0 0;
 }
 .giant {
   position: relative;
   z-index: 2;
-  display: grid;
-  justify-items: end;
   pointer-events: none;
 }
+/* The grey lead sits in the centre column; the typed item hangs off its right edge and may run into the side padding. */
 .giant-line {
-  pointer-events: auto;
-  cursor: pointer;
-  font: 700 clamp(1.5rem, 3.6vw, 3.6rem) / 1.4 var(--display);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-height: 1.4em;
+  font: 700 clamp(1.5rem, 2.5vw, 3.2rem) / 1.4 var(--display);
   letter-spacing: -0.04em;
-  color: #3d4048;
-  user-select: none;
-  /* Hover grows a line from its right edge without reflowing its neighbours; still below the old 6.2vw. */
-  transform-origin: right center;
-  transition: transform 0.25s cubic-bezier(0.2, 1, 0.3, 1);
-}
-.giant-line.hov {
-  transform: scale(1.32);
-}
-.giant-line .seltxt {
-  padding: 0 0.08em;
-}
-.giant-line .seltxt::after {
-  content: '';
-  display: inline-block;
-  width: 0.24em;
-  height: 0.24em;
-  margin-left: 0.14em;
-  vertical-align: 0.12em;
-  background: var(--ghost);
-}
-.giant-line.twp .seltxt::after {
-  opacity: 0;
-}
-.giant-line.shov .seltxt {
+  white-space: nowrap;
   color: #f4f5f7;
+  text-shadow: 0 0 18px #000, 0 0 4px #000;
 }
-.giant-line.hov .seltxt {
-  color: #000;
-  background: var(--cyan);
+.giant-lead {
+  grid-column: 2;
+  padding-right: 0.25em;
+  color: #6f7480;
 }
-.giant-line.shov .seltxt::after {
+.giant-slot {
+  grid-column: 3;
+}
+/* Spans the full viewport (cancelling the section's uneven side padding) so the lead centres on the page and the globe. */
+.giant,
+.spec-hint {
+  margin-left: calc(-1 * var(--gutter));
+  margin-right: calc(-1 * (var(--rail) + var(--gutter)));
+}
+.giant-caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 0.9em;
+  margin-left: 0.08em;
+  vertical-align: -0.1em;
   background: var(--pink);
+  animation: caret 1s steps(1) infinite;
 }
-.giant-line.hov .seltxt::after {
-  background: #000;
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
 }
 .pink {
   color: var(--pink);
@@ -813,16 +762,21 @@ button {
 .spec-hint {
   position: relative;
   z-index: 2;
-  margin-top: 28px;
-  text-align: right;
+  margin-top: 16px;
+  text-shadow: 0 0 8px #000;
+  text-align: center;
   color: var(--dim);
+}
+.gbox-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
 }
 .gbox {
   position: fixed;
   left: 50%;
   top: 50%;
-  z-index: 60;
-  width: 260px;
+  width: min(440px, calc(100vw - 32px));
   min-height: 110px;
   transform: translate(-50%, -50%);
   padding: 12px 14px;
@@ -1271,48 +1225,6 @@ button {
   color: var(--cyan);
 }
 
-/* FAQ */
-.faq {
-  border-top: 1px solid var(--line);
-}
-.faq-item {
-  border-bottom: 1px solid var(--line);
-}
-.faq-q {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 20px;
-  width: 100%;
-  padding: 18px 2px;
-  background: none;
-  border: 0;
-  font: 500 clamp(1rem, 1.4vw, 1.2rem) / 1.35 var(--display);
-  letter-spacing: -0.015em;
-  text-align: left;
-  color: #9a9fa8;
-  cursor: pointer;
-}
-.faq-q span {
-  font: 400 0.8rem var(--kode);
-  color: var(--cyan);
-}
-.faq-q:hover {
-  color: var(--pink);
-}
-.faq-item.open .faq-q {
-  color: #fff;
-}
-.faq-a {
-  max-width: 68ch;
-  padding: 0 2px 20px;
-  font: 400 1rem / 1.65 var(--body);
-  color: var(--copy);
-}
-.faq-a a {
-  color: var(--cyan);
-}
-
 /* Stack: pinned scene + cards */
 .svc-pin {
   display: grid;
@@ -1545,9 +1457,8 @@ button {
 }
 .demos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
   gap: 18px 12px;
-  max-width: 1080px;
 }
 .demo {
   opacity: 0.62;
@@ -1814,7 +1725,6 @@ button {
   }
   .rail,
   .tagline,
-  .stamp,
   .hero-ring {
     display: none;
   }
@@ -1837,20 +1747,25 @@ button {
   .chip {
     margin-top: 0;
   }
-  .hero-title {
-    left: var(--gutter);
-    right: var(--gutter);
-    bottom: 18px;
-    font-size: 8vw;
-    line-height: 1.08;
-    white-space: normal;
-    text-align: left;
-  }
   .hero-kicker {
-    bottom: calc(18px + 2 * 1.08 * 8vw + 16px);
+    bottom: 18px;
   }
   .spec-hint {
     text-align: left;
+  }
+  /* Two lines reserved so the hint below doesn't jump as items type and wrap. */
+  .giant-line {
+    display: block;
+    min-height: 2.8em;
+    white-space: normal;
+  }
+  .giant,
+  .spec-hint {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .spec {
+    --spec-line: calc(2.8 * 1.5rem);
   }
   .vidband {
     height: max(56vw, 320px);
