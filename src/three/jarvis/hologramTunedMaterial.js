@@ -3,7 +3,7 @@ import { PointsNodeMaterial, LineBasicNodeMaterial } from 'three/webgpu';
 import {
   Fn, uniform, attribute, vec3, vec4, float, mix, pow, max, abs, sin, cos, fract,
   clamp, smoothstep, saturate, oneMinus, atan, length, pointUV, positionGeometry,
-  positionView, positionLocal, floor, Discard,
+  positionView, positionLocal, floor, Discard, dot,
 } from 'three/tsl';
 
 // Hot end of the trail, measured off the imported asset's own COLOR_0 rather than any
@@ -111,6 +111,8 @@ function makeTunedUniforms() {
     // profiles. -1 disables faceting entirely.
     uFacetRingMin: uniform(-1),
     uHotColor: uniform(new THREE.Color(...HOT_EMISSION)),
+    // 0..1: how far the page's strands have taken the hologram over, recolouring it into their palette.
+    uPossess: uniform(0),
   };
 }
 
@@ -153,13 +155,18 @@ function tunedShading(uniforms) {
   const noise = fract(sin(arrival.mul(127.1).add(uniforms.uTime.mul(3.0))).mul(43758.5453));
   const shimmer = float(1.0).add(noise.sub(0.5).mul(uniforms.uShimmer).mul(rim).mul(2.0));
 
-  const rgb = mix(emission.rgb, uniforms.uHotColor, heat)
+  const own = mix(emission.rgb, uniforms.uHotColor, heat)
     .mul(intensity)
     .mul(sweep)
     .mul(shimmer)
     .mul(motif)
     .mul(facet)
     .mul(uniforms.uSurge);
+
+  // Possessed: same brightness, re-hued into the strands' cyan with pink bands drifting round the rings.
+  const band2 = sin(angle.mul(3.0).add(uniforms.uTime.mul(0.8)).add(arrival.mul(9.0))).mul(0.5).add(0.5);
+  const strandHue = mix(vec3(0.03, 0.99, 0.85), vec3(1.0, 0.41, 0.71), smoothstep(0.6, 0.95, band2));
+  const rgb = mix(own, strandHue.mul(dot(own, vec3(0.299, 0.587, 0.114)).mul(1.5)), uniforms.uPossess);
 
   return { rgb, alpha: emission.w, heat, falloff };
 }

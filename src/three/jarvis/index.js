@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { WebGPURenderer } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { COARSE } from '../../env';
+import { COARSE, jarvisLink } from '../../env';
 import { createTunedPointsMaterial, createTunedLineMaterial, makeTunedUniforms } from './hologramTunedMaterial';
 import { attachMazeWalkNodes, selectOuterPlanarShells } from './mazeWalkNodes';
 import { attachCircuitTraces } from './circuitTraces';
 import { attachSynapseLightning } from './synapseLightning';
+import { xorStream } from './keystream';
+import { seed, url } from 'virtual:jarvis-vault';
 
 // Ported from the jarvis repo's HologramTuned (v1). The transcript-driven CHOP channels are absent
 // here, so every channel sits at rest and only orbit interaction drives the sweep and ring weights.
@@ -36,10 +38,10 @@ function assignStorageMotifs(scene, uniforms) {
 }
 
 /**
- * Mounts the v1 hologram into `host`. `anchor()` returns the y (px, within host) to centre it on.
+ * Mounts the v1 hologram into `host`, decrypting its model in memory (see vault/jarvisVault.js). `anchor()` returns the y (px, within host) to centre it on.
  * Returns a dispose function that is safe to call mid-load.
  */
-export function initJarvis(host, modelUrl, { anchor } = {}) {
+export function initJarvis(host, { anchor } = {}) {
   let disposed = false;
   const cleanups = [];
   const dispose = () => {
@@ -48,13 +50,19 @@ export function initJarvis(host, modelUrl, { anchor } = {}) {
   };
 
   (async () => {
-    const renderer = new WebGPURenderer({ antialias: true, powerPreference: 'high-performance' });
+    const renderer = new WebGPURenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     // Download and GPU init overlap; neither depends on the other.
-    const [gltf] = await Promise.all([new GLTFLoader().loadAsync(modelUrl), renderer.init()]);
+    const open = async () => {
+      const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+      const key = new Uint32Array(Uint8Array.from(atob(seed), (c) => c.charCodeAt(0)).buffer);
+      return new GLTFLoader().parseAsync(xorStream(bytes, key).buffer, '');
+    };
+    const [gltf] = await Promise.all([open(), renderer.init()]);
     if (disposed) return renderer.dispose();
     // The host spans two sections, so the pixel ratio is capped lower than a single-band canvas.
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
-    renderer.setClearColor('#000000');
+    // Transparent, so the strand world shows through behind Archive and Contact.
+    renderer.setClearColor('#000000', 0);
     renderer.domElement.style.touchAction = 'pan-y';
     host.appendChild(renderer.domElement);
     cleanups.push(() => (renderer.dispose(), renderer.domElement.remove()));
@@ -124,9 +132,15 @@ export function initJarvis(host, modelUrl, { anchor } = {}) {
     if (disposed) return;
 
     let visible = false;
-    const io = new IntersectionObserver(([e]) => (visible = e.isIntersecting), { rootMargin: '100px' });
+    const io = new IntersectionObserver(([e]) => (visible = jarvisLink.on = e.isIntersecting), { rootMargin: '100px' });
     io.observe(host);
-    cleanups.push(() => io.disconnect());
+    cleanups.push(() => (io.disconnect(), (jarvisLink.on = false)));
+    // Centred on the cloud but sized off its widest ring: stray dispersed points reach far past what reads.
+    const bounds = new THREE.Box3().setFromObject(gltf.scene).getBoundingSphere(new THREE.Sphere());
+    bounds.radius = uniforms.uShellRadius.value;
+    const proj = new THREE.Vector3();
+    const HOT = uniforms.uHotColor.value.clone();
+    const STRAND = new THREE.Color('#08fdd8');
 
     // Pointer-follow, no click needed: over the hologram the model turns toward the cursor, and moving
     // counts as interaction, so the rings answer and the sweep runs just as they do on a drag.
@@ -160,15 +174,24 @@ export function initJarvis(host, modelUrl, { anchor } = {}) {
       controls.update();
       const target = now / 1000 - lastInteraction < INTERACTION_HOLD ? 1 : 0;
       interactive += (target - interactive) * Math.min(1, delta * INTERACTION_EASE);
-      sweep += SWEEP_ANGULAR_SPEED * delta * interactive;
+      sweep += SWEEP_ANGULAR_SPEED * delta * Math.max(interactive, jarvisLink.possess * 0.8);
       if (actions.idle) actions.idle.weight = 1 - interactive;
       if (actions.interactive) actions.interactive.weight = interactive;
 
       uniforms.uTime.value = t;
-      uniforms.uInteractive.value = interactive;
       uniforms.uSweep.value = sweep;
       uniforms.uReveal.value = Math.min(1, t / REVEAL_DURATION);
-      uniforms.uSurge.value = 1;
+      // Tell the strands where the hologram is on screen, and take back how far they have possessed it.
+      const hr = host.getBoundingClientRect();
+      proj.copy(bounds.center).project(camera);
+      jarvisLink.x = hr.left + ((proj.x + 1) / 2) * hr.width;
+      jarvisLink.y = hr.top + ((1 - proj.y) / 2) * hr.height;
+      jarvisLink.r = (bounds.radius / (camera.position.distanceTo(bounds.center) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) * (hr.height / 2);
+      const possess = jarvisLink.possess;
+      uniforms.uPossess.value = possess;
+      uniforms.uHotColor.value.lerpColors(HOT, STRAND, possess);
+      uniforms.uInteractive.value = Math.max(interactive, possess * 0.8);
+      uniforms.uSurge.value = 1 + 0.4 * possess;
       uniforms.uSweepGain.value = 0.6;
       uniforms.uTrail.value = 0.35;
       uniforms.uDisperse.value = DISPERSE;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import emailjs from '@emailjs/browser';
 import { BRIEF_NEEDS, BRIEF_TIMELINES, openMail } from '../data';
-import { COARSE, REDUCED, WEBGL, media } from '../env';
+import { COARSE, REDUCED, WEBGL } from '../env';
 import { scramble, useTypewriter } from '../fx/hooks';
 
 const STEPS = [
@@ -113,12 +113,25 @@ export function JarvisZone({ children }) {
     if (!WEBGL || REDUCED) return;
     let dispose;
     let cancelled = false;
-    const anchor = () => zone.current.querySelector('#contact')?.offsetTop ?? zone.current.clientHeight / 2;
-    import('../three/jarvis').then(
-      ({ initJarvis }) => !cancelled && (dispose = initJarvis(band.current, media('jarvis/hologram_tuned_animated.glb'), { anchor }))
+    // Measured against the band itself, which starts above the zone (see .jarvis-zone > .car-band).
+    const anchor = () => {
+      const contact = zone.current.querySelector('#contact');
+      return contact ? contact.getBoundingClientRect().top - band.current.getBoundingClientRect().top : band.current.clientHeight / 2;
+    };
+    // The hologram's code and model are the page's heaviest download, so they wait until the reader is
+    // a couple of screens away rather than competing with the hero.
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!e.isIntersecting) return;
+        io.disconnect();
+        import('../three/jarvis').then(({ initJarvis }) => !cancelled && (dispose = initJarvis(band.current, { anchor })));
+      },
+      { rootMargin: '200% 0px' }
     );
+    io.observe(zone.current);
     return () => {
       cancelled = true;
+      io.disconnect();
       dispose?.();
     };
   }, []);

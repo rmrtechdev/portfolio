@@ -316,7 +316,7 @@ export default function Snake() {
         {mode !== 'play' && (
           <div className="snake-overlay" onClick={(e) => e.target === e.currentTarget && setSlide((slide + 1) % SLIDES.length)}>
             {SLIDES.map((p, i) => (
-              <img key={p.title} src={p.poster} alt="" className={i === slide ? 'on' : undefined} />
+              <img key={p.title} src={p.poster} alt="" loading="lazy" decoding="async" className={i === slide ? 'on' : undefined} />
             ))}
             <button className="snake-play nav-font cybr" onClick={start} data-text={playLabel}>
               {playLabel}

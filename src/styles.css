@@ -287,14 +287,24 @@ button {
 }
 .loader-num {
   position: fixed;
-  left: 0;
-  bottom: 0;
+  left: 50%;
+  bottom: 5vh;
   z-index: 720;
-  padding: 0 0.15em 0.02em 0.04em;
-  font: 700 clamp(6rem, 16vw, 15rem) / 0.9 var(--display);
-  letter-spacing: -0.05em;
+  font: 700 clamp(2.5rem, 6vw, 5rem) / 1 var(--display);
+  letter-spacing: -0.04em;
   color: var(--pink);
   pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 0.3em);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.loader-num.in {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.loader-num.out {
+  opacity: 0;
+  transform: translate(-50%, -0.3em);
 }
 
 /* Top bar */
@@ -478,10 +488,10 @@ button {
   transform: translateX(-50%);
   z-index: 5;
   display: inline-flex;
-  gap: 6px;
+  gap: 7px;
   align-items: center;
-  padding: 4px 9px;
-  font-size: 0.72rem;
+  padding: 6px 12px;
+  font-size: 0.82rem;
   color: var(--mid);
   background: #000;
   border: 0;
@@ -907,6 +917,15 @@ main > * {
   pointer-events: auto;
 }
 
+/* Open ground between chapters: the strand thread flies through here as a tunnel before reshaping
+   around the next section. */
+#team,
+#services,
+#work,
+.jarvis-zone {
+  margin-top: 45vh;
+}
+
 /* Sections + giant heads */
 .section {
   position: relative;
@@ -1256,10 +1275,12 @@ main > * {
 }
 .jarvis-zone {
   position: relative;
-  overflow: hidden;
+  /* Clip sideways only: the hologram's canvas reaches up into the open ground above the zone. */
+  overflow-x: clip;
 }
 .jarvis-zone > .car-band {
   z-index: 0;
+  top: -45vh;
 }
 /* The hologram stays draggable in the gaps; only the reel thumbnails take pointer events. */
 .archive {
@@ -1296,13 +1317,6 @@ main > * {
   border: 1px solid var(--line);
   overflow: hidden;
 }
-.demo-frame button {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
 .demo-frame img {
   width: 100%;
   height: 100%;
@@ -1312,20 +1326,6 @@ main > * {
 }
 .demo:hover .demo-frame img {
   filter: none;
-}
-.demo-frame iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-.play {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 4px 8px;
-  background: var(--pink);
-  color: #000;
-  font-size: 0.72rem;
 }
 .demo figcaption {
   margin-top: 8px;
@@ -1541,6 +1541,12 @@ main > * {
 }
 
 @media (max-width: 900px) {
+  #team,
+  #services,
+  #work,
+  .jarvis-zone {
+    margin-top: 30vh;
+  }
   :root {
     --rail: 0px;
   }

@@ -1,8 +1,34 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import obfuscator from 'rollup-plugin-obfuscator';
+import jarvisVault from './vault/jarvisVault.js';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    jarvisVault('vault/jarvis.glb'),
+    // Production only, and only the Jarvis modules: the rest of the site stays plainly minified.
+    {
+      ...obfuscator({
+        include: ['**/src/three/jarvis/**'],
+        options: {
+          compact: true,
+          identifierNamesGenerator: 'hexadecimal',
+          stringArray: true,
+          stringArrayEncoding: ['rc4'],
+          stringArrayThreshold: 1,
+          // Light enough not to cost frame time in the render loop.
+          controlFlowFlattening: true,
+          controlFlowFlatteningThreshold: 0.3,
+          splitStrings: true,
+          splitStringsChunkLength: 8,
+          transformObjectKeys: true,
+          unicodeEscapeSequence: false,
+        },
+      }),
+      apply: 'build',
+    },
+  ],
   // Served from rmrtechdev.github.io/portfolio/
   base: '/portfolio/',
   server: { port: 3000 },

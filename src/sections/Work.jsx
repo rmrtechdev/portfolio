@@ -53,34 +53,25 @@ export function Services() {
 
 function PreviewVideo({ src, poster, label }) {
   const ref = useRef(null);
+  // A poster downloads as soon as it is set, preload="none" or not, so it waits until the card is near.
+  const [near, setNear] = useState(false);
   useEffect(() => {
     const video = ref.current;
-    if (REDUCED) return;
+    const nearby = new IntersectionObserver(([e]) => e.isIntersecting && (setNear(true), nearby.disconnect()), { rootMargin: '100% 0px' });
+    nearby.observe(video);
+    if (REDUCED) return () => nearby.disconnect();
     const io = new IntersectionObserver(([e]) => (e.isIntersecting ? video.play().catch(() => {}) : video.pause()), { threshold: 0.3 });
     io.observe(video);
-    return () => io.disconnect();
+    return () => (nearby.disconnect(), io.disconnect());
   }, []);
-  return <video ref={ref} src={src} poster={poster} muted loop playsInline preload="none" aria-label={label} />;
+  return <video ref={ref} src={src} poster={near ? poster : undefined} muted loop playsInline preload="none" aria-label={label} />;
 }
 
 function Demo({ d, i }) {
-  const [playing, setPlaying] = useState(false);
   return (
     <figure className="demo">
       <div className="demo-frame">
-        {playing ? (
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${d.id}?autoplay=1`}
-            title={d.title}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
-        ) : (
-          <button onClick={() => setPlaying(true)} aria-label={`Play: ${d.title}`}>
-            <img src={`https://i.ytimg.com/vi/${d.id}/hqdefault.jpg`} alt="" loading="lazy" />
-            <span className="play nav-font">▶ Play</span>
-          </button>
-        )}
+        <img src={`https://i.ytimg.com/vi/${d.id}/hqdefault.jpg`} alt={d.title} loading="lazy" />
       </div>
       <figcaption className="nav-font">
         <span className="cyan">V/{pad(i + 1)}</span> {d.title}
@@ -103,8 +94,8 @@ export function Work() {
             <p className="pj-copy">{p.summary}</p>
             <div className="pj-media">
               <PreviewVideo src={p.video} poster={p.poster} label={`${p.title} preview`} />
-              <img className="pj-split r" src={p.poster} alt="" aria-hidden="true" />
-              <img className="pj-split c" src={p.poster} alt="" aria-hidden="true" />
+              <img className="pj-split r" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+              <img className="pj-split c" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
             </div>
             <p className="pj-tag">{p.tagline}</p>
             <p className="pj-done-h nav-font">Key deliverables</p>

@@ -160,26 +160,27 @@ function Visitors({ clusters }) {
 }
 
 // Home marker: cyan core, halo, two staggered pulse rings and a radial beacon, oriented to the surface.
+// Kept small: the world's bloom pass widens every bright pixel of it.
 function HomeMarker({ position }) {
   const pulses = useRef([]);
   const quaternion = useMemo(() => new THREE.Quaternion().setFromUnitVectors(Z, position.clone().normalize()), [position]);
-  const beacon = useMemo(() => new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 0.3)]), []);
+  const beacon = useMemo(() => new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 0.18)]), []);
   useFrame(({ clock }) => {
     pulses.current.forEach((m, i) => {
       const k = (clock.elapsedTime * 0.55 + i * 0.5) % 1;
-      m.scale.setScalar(0.03 + k * 0.15);
-      m.material.opacity = (1 - k) * 0.9;
+      m.scale.setScalar(0.02 + k * 0.07);
+      m.material.opacity = (1 - k) * 0.6;
     });
   });
   return (
     <group position={position} quaternion={quaternion}>
       <mesh>
-        <sphereGeometry args={[0.024, 16, 16]} />
+        <sphereGeometry args={[0.012, 16, 16]} />
         <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </mesh>
       <mesh position={[0, 0, 0.002]}>
-        <circleGeometry args={[0.075, 32]} />
-        <meshBasicMaterial color="#08fdd8" transparent opacity={0.28} depthWrite={false} toneMapped={false} />
+        <circleGeometry args={[0.035, 32]} />
+        <meshBasicMaterial color="#08fdd8" transparent opacity={0.2} depthWrite={false} toneMapped={false} />
       </mesh>
       {[0, 1].map((i) => (
         <mesh key={i} ref={(el) => (pulses.current[i] = el)} position={[0, 0, 0.003]}>

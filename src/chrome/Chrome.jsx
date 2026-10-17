@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SOCIALS, openMail } from '../data';
 import { useTypewriter } from '../fx/hooks';
+import { loadShown } from '../env';
 
 export const SECTIONS = [
   ['top', 'Main'],
@@ -14,6 +15,7 @@ export const SECTIONS = [
 /** Black cover with the load count; the loading strands are drawn by the world canvas, which sits above it. */
 export function Loader({ ready, onProgress, onComplete }) {
   const [pct, setPct] = useState(0);
+  const [live, setLive] = useState(false);
   const readyRef = useRef(ready);
   readyRef.current = ready;
 
@@ -21,19 +23,29 @@ export function Loader({ ready, onProgress, onComplete }) {
     let n = 0;
     const timer = setInterval(() => {
       n = Math.min(readyRef.current ? 100 : 98, n + (readyRef.current ? 16 : 2 + Math.random() * 6));
-      setPct(Math.floor(n));
       onProgress(n / 100);
       if (n >= 100) {
         clearInterval(timer);
         onComplete();
       }
     }, 140);
-    return () => clearInterval(timer);
+    // Until the strands run, the count eases the shared value itself; they then pick it up where it is.
+    const start = performance.now();
+    let last = start;
+    let raf = requestAnimationFrame(function tick(now) {
+      if (!loadShown.live) loadShown.value += (n / 100 - loadShown.value) * (1 - Math.exp(-Math.min((now - last) / 1000, 0.1) * 8));
+      last = now;
+      setPct(Math.round(loadShown.value * 100));
+      setLive(loadShown.live || now - start > 1200);
+      raf = requestAnimationFrame(tick);
+    });
+    return () => (clearInterval(timer), cancelAnimationFrame(raf));
   }, []);
 
   return (
     <div className="loader" aria-hidden="true">
-      {pct < 100 && <div className="loader-num">{pct}%</div>}
+      {/* Waits briefly for the strands, so on a normal connection both arrive together. */}
+      <div className={`loader-num${live ? ' in' : ''}${pct >= 99 ? ' out' : ''}`}>{pct}%</div>
     </div>
   );
 }

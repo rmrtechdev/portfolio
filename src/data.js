@@ -18,7 +18,7 @@ export const SOCIALS = [
 ];
 
 export const GIANT_LEAD = 'R.M.Roman — web dev specializing in';
-export const DISCIPLINES = ['Python / Django', 'React / Next.js', '3D on the web', 'Applied AI', 'Security-minded'];
+export const DISCIPLINES = ['Python / Django', 'React / Next.js', '3D on the web', 'Applied AI', 'Application security'];
 
 export const STATEMENT = 'I build web products end to end — from the data model to the deployed interface.';
 export const MARQUEE = 'Technology for sustainability';
@@ -234,7 +234,7 @@ export const SERVICES = [
   },
   {
     kicker: '05 / Break it before they do',
-    title: 'Security-minded',
+    title: 'Application security',
     copy: 'Practice on OWASP crAPI, Hack The Box, and TryHackMe shapes how I build APIs.',
     art: 'radar',
     detail: 'I practise offensive security on OWASP crAPI, Hack The Box, and TryHackMe. Knowing how APIs get broken changes how I build them.',

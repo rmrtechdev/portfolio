@@ -6,12 +6,13 @@ import { REDUCED } from '../env';
 // Converging on the attractor is what draws the knot "character"; nothing else shapes it.
 const flow = (x, y, z) => [-1.9 * x + y * y - z * z + 18.81, x * (y - 5 * z) + 1, -z + x * (5 * y + z)];
 
-export const STRAND_COUNT = 320;
-const COUNT = STRAND_COUNT;
+const COUNT = 320;
 const TAIL = 24;
 const DT = 0.003;
 const PREWARM = 260;
 const SEG = (TAIL - 1) * 2;
+/** Vertices per strand in the shared geometry, so a shader can tell strands apart by `gl_VertexID`. */
+export const STRAND_VERTS = SEG;
 
 function build() {
   const state = new Float32Array(COUNT * 3);
@@ -84,11 +85,6 @@ export function stepStrands(delta) {
   const n = THREE.MathUtils.clamp(Math.round(delta * 60), 1, 4);
   for (let i = 0; i < n; i++) field.advance();
   field.write();
-}
-
-/** Limits every view of the shared field to its first `n` strands. */
-export function reveal(n) {
-  field.geometry.setDrawRange(0, Math.min(n, COUNT) * SEG);
 }
 
 /** A unit-radius view of the shared strand field; scale it to set the shell radius. */

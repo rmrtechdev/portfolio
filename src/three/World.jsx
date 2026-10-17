@@ -10,12 +10,13 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { COARSE } from '../env';
+import { COARSE, jarvisLink, loadShown } from '../env';
 import { HOME, PROJECTS, REEL } from '../data';
 import { Earth } from './Globe';
 import { plantGeometry, plantRows } from './growRoom';
 import { createStack } from './stack';
-import { STRAND_COUNT, createStrands, reveal, stepStrands } from './strands';
+import { STRAND_VERTS, createStrands, stepStrands } from './strands';
+import { createThread } from './thread';
 
 const passVertex = /* glsl */ `
   varying vec2 vUv;
@@ -218,9 +219,13 @@ const LOAD_DIST = 17;
 const LOAD_R = 3.2;
 // Inside the room's fog range (8-22 from a camera ~9 out), so the whole floor disc reads.
 const FLOOR_R = 11;
-const SHELL_R = 1.85;
-const RIVER_R = 5;
-const RIVER_L = 40;
+// The wireframe floor the strands trace: the room's original grid helper.
+// The hologram's widest ring is sparse at its edge; the strand cage hugs where it reads dense.
+const JARVIS_CAGE = 0.62;
+const GRID_SIZE = 60;
+const GRID_DIVS = 40;
+// Clears the satellite's highest relay (1.9 globe radii, see Globe.jsx relayFor) with room for the model.
+const SHELL_R = 2.75;
 // Page pixels of scroll per world unit travelled down the river after About.
 const PX_PER_UNIT = 50;
 // About holds the globe framed for this much scroll before the camera flies on.
@@ -240,20 +245,72 @@ const smooth = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-/** Strand views that never move with scroll on their own: knot/floor, the dive river and the globe shell. */
+/** Strand views: knot/floor, the dive river, the globe shell, and the thread that carries on past About. */
 function useStations() {
   return useMemo(() => {
     const floor = createStrands();
     const dive = createStrands();
     const shell = createStrands({ opacity: 0.5 });
-    const ahead = [createStrands(), createStrands()];
-    for (const l of [floor, dive, ...ahead]) l.material.fog = true;
+    const thread = createThread();
+    for (const l of [floor, dive]) l.material.fog = true;
+    // The knot unwinds strand by strand into a two-armed spiral disk under the room; scrolling drains the
+    // disk down a whirlpool into the dive river. Shapes are functions of the unit-sphere point, so trails
+    // stay continuous through every blend.
+    // The second view traces the room's wireframe grid: each strand rides one row or column, so light
+    // races along the lattice out to where the fog dissolves it.
+    const floors = [floor, createStrands()];
+    floors[1].material.fog = true;
+    floors[1].material.defines = { GRID: '' };
+    const grid = new THREE.GridHelper(GRID_SIZE, GRID_DIVS, CYAN, '#0f6e5f');
+    grid.position.y = FLOOR_Y;
+    grid.material.transparent = true;
+    const u = { uLoad: { value: 0 }, uLand: { value: 0 }, uDrain: { value: 0 }, uTime: { value: 0 } };
+    floor.userData.u = u;
+    for (const l of floors) l.material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, u);
+      shader.vertexShader = `uniform float uLoad;\nuniform float uLand;\nuniform float uDrain;\nuniform float uTime;\n${shader.vertexShader}`
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+          float h = fract(sin(float(gl_VertexID / ${STRAND_VERTS}) * 12.9898) * 43758.5453);
+          vec3 p0 = transformed;
+          float ang = atan(transformed.y, transformed.x);
+          float r = mix(0.1, 1.0, transformed.z * 0.5 + 0.5);
+          float a = ang - 2.2 * log(r) - uTime * 0.08;
+          a -= 0.4 * sin(2.0 * a);
+          vec3 disk = vec3(cos(a) * r, 0.012 * sin(r * 14.0 - uTime * 1.4), sin(a) * r) * ${FLOOR_R}.0;
+          float d = smoothstep(h * 0.45, h * 0.45 + 0.55, uDrain);
+          float dr = 1.0 - d;
+          vec3 drain = vec3(cos(a + d * 7.0) * r * dr * ${FLOOR_R}.0, disk.y * dr - 14.0 * d * d, sin(a + d * 7.0) * r * dr * ${FLOOR_R}.0);
+          float w = smoothstep(h * 0.5, h * 0.5 + 0.5, uLand);
+          #ifdef GRID
+          float lane = (floor(h * ${GRID_DIVS + 1}.0) - ${GRID_DIVS / 2}.0) * ${GRID_SIZE / GRID_DIVS};
+          float along = p0.z * ${GRID_SIZE / 2}.0;
+          drain = (gl_VertexID / ${STRAND_VERTS}) % 2 == 0 ? vec3(lane, 0.0, along) : vec3(along, 0.0, lane);
+          drain.y -= 3.0 * d * d;
+          #endif
+          // Loading: strands stream in around a ring in order, so the knot fills like a radial progress bar.
+          float arrive = smoothstep(h * 0.85, h * 0.85 + 0.15, uLoad);
+          float sa = 1.5708 - h * 6.2832 - (1.0 - arrive) * 1.5;
+          vec3 knot = mix(vec3(cos(sa), sin(sa), 0.0) * ${(LOAD_R * 1.6).toFixed(2)}, transformed * ${LOAD_R}, arrive);
+          // Strands land one after another on a lifted arc, so the landing reads as a cascade, not a squash.
+          transformed = mix(knot, drain, w) + vec3(0.0, 1.2 * sin(w * 3.14159), 0.0);
+          float rim = smoothstep(1.05, 0.85, r) * smoothstep(0.1, 0.25, r);
+          float glow = mix(1.0, rim * (0.55 + 0.45 * sin(r * 22.0 - uTime * 2.0)) + 2.5 * w * (1.0 - w) + 1.5 * d * (1.0 - d), w);
+          #ifdef GRID
+          // Dissolves with the grid under it instead of following the spiral down the drain.
+          glow = mix(1.0, 1.2 * dr + 2.5 * w * (1.0 - w), w);
+          #endif
+          #ifdef USE_COLOR
+          vColor *= glow * mix(0.12, 1.0, arrive) * (1.0 + 2.0 * arrive * (1.0 - arrive));
+          #endif`
+        );
+    };
     dive.position.set(0, -17, 0.5);
     dive.scale.set(4.5, 14, 4.5);
     shell.position.copy(GLOBE);
     shell.scale.setScalar(SHELL_R);
-    for (const l of ahead) l.scale.set(RIVER_R, RIVER_R, RIVER_L / 2);
-    return { floor, dive, shell, ahead };
+    return { floor, floors, grid, dive, shell, thread };
   }, []);
 }
 
@@ -261,9 +318,9 @@ function useStations() {
  * Owns the camera and the render. The page scroll is the flight: hero orbit -> dive through the floor ->
  * globe framed under About's text -> past the globe into the river for the rest of the page.
  */
-function Director({ thermal, compact, introPanel, rig, room, stations, stack, entering, onEntered, onStage, onReady }) {
+function Director({ load, thermal, compact, introPanel, rig, room, stations, stack, entering, onEntered, onStage, onReady }) {
   const { gl, scene, camera, size } = useThree();
-  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '' });
+  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value });
   const intro = useRef(null);
   const look = useMemo(() => new THREE.Vector3(0, 1.1, 0), []);
   const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3() }), []);
@@ -272,7 +329,24 @@ function Director({ thermal, compact, introPanel, rig, room, stations, stack, en
     const composer = new EffectComposer(gl);
     composer.addPass(new RenderPass(scene, camera));
     const bokeh = compact ? null : new BokehPass(scene, camera, { focus: 9, aperture: 0.00077, maxblur: 0.01 });
-    if (bokeh) composer.addPass(bokeh);
+    if (bokeh) {
+      composer.addPass(bokeh);
+      // Bokeh's depth pass draws everything with one override material, which skips the floor's spiral
+      // shader and so smears the strands at full blur. A depth-only plane at floor level stands in
+      // for them there.
+      const proxy = new THREE.Mesh(new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+      proxy.position.y = FLOOR_Y;
+      proxy.visible = false;
+      scene.add(proxy);
+      const render = bokeh.render.bind(bokeh);
+      bokeh.render = (...args) => {
+        for (const l of stations.floors) l.visible = false;
+        proxy.visible = true;
+        render(...args);
+        for (const l of stations.floors) l.visible = true;
+        proxy.visible = false;
+      };
+    }
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.5));
     composer.addPass(new FilmPass(0.55, false));
     const thermalPass = new ShaderPass(ThermalShader);
@@ -313,7 +387,7 @@ function Director({ thermal, compact, introPanel, rig, room, stations, stack, en
     const s = state.current;
     const now = performance.now();
     const H = innerHeight;
-    const { floor, dive, shell, ahead } = stations;
+    const { floor, floors, grid, dive, shell, thread } = stations;
     stepStrands(delta);
 
     // While the flight owns the camera the orbit is parked; put its pose back before the orbit runs.
@@ -439,7 +513,9 @@ function Director({ thermal, compact, introPanel, rig, room, stations, stack, en
         camera.localToWorld(stack.group.position);
         stack.group.quaternion.copy(camera.quaternion).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(s.stackPitch, s.stackYaw, 0)));
         stack.group.scale.setScalar(backdrop ? (0.85 * innerWidth * toWorld) / stack.width : (0.55 * r.height * toWorld) / stack.height);
+        thread.uniforms.uStack.value.set((r.left + r.width / 2 - innerWidth / 2) * toWorld, (H / 2 - r.top - r.height / 2) * toWorld, -depth, (stack.group.scale.x * stack.width) / 2);
         stack.uniforms.uOpacity.value = backdrop ? 0.4 : 1;
+        thread.uniforms.uHaloA.value = backdrop ? 0.1 : 0.35;
         stack.uniforms.uForm.value = form;
         stack.uniforms.uTime.value = clock.elapsedTime;
         stack.screen.material.opacity = smooth(0.7, 1, form);
@@ -452,34 +528,58 @@ function Director({ thermal, compact, introPanel, rig, room, stations, stack, en
     }
     s.stackY = y;
 
-    // Strands: knot -> floor, the dive river, the globe shell, and the river ahead after About.
+    // Strands: knot -> floor, the dive river and the globe shell.
     camera.getWorldDirection(tmp.fwd);
     const k = easeInOutCubic(e);
     const knotAt = camera.position.clone().addScaledVector(tmp.fwd, LOAD_DIST);
     floor.position.lerpVectors(knotAt, new THREE.Vector3(0, FLOOR_Y, 0), k);
-    floor.scale.set(THREE.MathUtils.lerp(LOAD_R, FLOOR_R, k), THREE.MathUtils.lerp(LOAD_R, 0.01, k), THREE.MathUtils.lerp(LOAD_R, FLOOR_R, k));
-    floor.rotation.set(0.3 * (1 - k), clock.elapsedTime * THREE.MathUtils.lerp(0.35, 0.02, k), 0);
+    // Both views are the same knot until they land, so the grid view only fades in as they part.
+    floors[1].material.opacity = k;
+    floors.forEach((l, i) => (l.position.copy(floor.position), l.rotation.set(0.3 * (1 - k), clock.elapsedTime * 0.35 * (1 - k), 0)));
+    grid.material.opacity = 0.3 * smooth(0.5, 1, e) * (1 - smooth(0.02, 0.3, p));
+    grid.visible = grid.material.opacity > 0.01;
+    s.load += ((entering ? 1 : load.current) - s.load) * (1 - Math.exp(-Math.min(delta, 0.1) * 8));
+    loadShown.value = s.load;
+    loadShown.live = true;
+    floor.userData.u.uLoad.value = s.load;
+    floor.userData.u.uLand.value = e;
+    floor.userData.u.uDrain.value = smooth(0.02, 0.4, p);
+    floor.userData.u.uTime.value = clock.elapsedTime;
     dive.material.opacity = 0.9 * smooth(0.05, 0.3, p) * (1 - smooth(0.85, 1, p));
     dive.visible = dive.material.opacity > 0.01;
     dive.rotation.y = clock.elapsedTime * 0.05 + p * 2;
-    shell.scale.setScalar(innerWidth < H ? SHELL_R * 0.85 : SHELL_R);
     shell.material.opacity = 0.5 * smooth(0.55, 0.9, p) * (1 - smooth(0.5, 1, q));
     shell.visible = shell.material.opacity > 0.01;
     shell.rotation.set(0.25, clock.elapsedTime * 0.04, 0);
-    // Two river segments leapfrog ahead of the camera; the jump happens beyond the fog, so it never shows.
-    const camRun = Math.max(0, GLOBE.z - 12 - camera.position.z);
-    const seg = Math.floor(camRun / RIVER_L);
-    const reading = smooth(0.3, 0.9, q) * (0.22 + Math.min(0.55, s.vel * 0.03));
-    ahead.forEach((l, i) => {
-      l.position.set(GLOBE.x, GLOBE.y, GLOBE.z - 12 - (seg + i + 0.5) * RIVER_L);
-      l.rotation.set(0, 0, (seg + i) * 1.7 + travel * 0.04);
-      l.material.opacity = reading;
-      l.visible = reading > 0.01;
-    });
+    // Past About the thread takes the shape of whichever section holds the screen, and flies as a tunnel
+    // through the open gaps between them.
+    const tu = thread.uniforms;
+    const hold = (el) => {
+      if (!el) return 0;
+      const r = el.getBoundingClientRect();
+      return smooth(H * 0.95, H * 0.4, r.top) * smooth(H * 0.05, H * 0.6, r.bottom);
+    };
+    const want = new THREE.Vector4(hold(document.getElementById('team')), stack.group.visible ? stack.uniforms.uForm.value : 0, hold(document.getElementById('work')), 0);
+    // Contact: the strands lock onto the Jarvis hologram wherever its own canvas has drawn it.
+    if (jarvisLink.on) {
+      const toWorld = (2 * 6 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / H;
+      tu.uJarvis.value.set((jarvisLink.x - innerWidth / 2) * toWorld, (H / 2 - jarvisLink.y) * toWorld, -6, JARVIS_CAGE * jarvisLink.r * toWorld);
+      want.w = smooth(H * 1.2, H * 0.6, jarvisLink.y) * smooth(-H * 0.5, H * 0.05, jarvisLink.y);
+    }
+    // Eased in time as well as scroll, so a flick of the wheel still reads as the strands flying across.
+    tu.uW.value.lerp(want, 1 - Math.exp(-Math.min(delta, 0.1) * 5));
+    jarvisLink.possess = tu.uW.value.w;
+    tu.uTan.value = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    tu.uTime.value = clock.elapsedTime;
+    tu.uTravel.value = travel;
+    tu.uAspect.value = innerWidth / H;
+    tu.uOpacity.value = smooth(0.05, 0.5, q) * (0.85 + Math.min(0.5, s.vel * 0.02));
+    thread.lines.visible = tu.uOpacity.value > 0.01;
 
     if (bokeh) {
       bokeh.uniforms.focus.value = camera.position.distanceTo(flying ? tmp.tgt : look);
-      bokeh.enabled = p < 0.5;
+      // The proxy only matches the landed floor, so depth of field waits for the knot to settle.
+      bokeh.enabled = p < 0.5 && e >= 1;
     }
     s.msXs += (s.msX - s.msXs) * 0.046;
     rig.current.rotation.x += (s.msXs * 0.045 - rig.current.rotation.x) * 0.07;
@@ -523,7 +623,8 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
     if (i === 1) introPanel.current = obj;
   };
   const select = (i) => document.getElementById(`p-${PROJECTS.indexOf(REEL[i]) + 1}`)?.scrollIntoView({ behavior: 'smooth' });
-  useEffect(() => reveal(entering ? STRAND_COUNT : Math.ceil(progress * STRAND_COUNT)), [progress, entering]);
+  const load = useRef(0);
+  load.current = progress;
 
   return (
     <div className={stage === 'loading' ? 'world loading' : 'world'} aria-hidden="true">
@@ -531,12 +632,13 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
         <color attach="background" args={['#050505']} />
         <fog attach="fog" args={['#050505', 8, 22]} />
         <Lights />
-        <primitive object={stations.floor} dispose={null} />
-        <primitive object={stations.dive} dispose={null} />
-        <primitive object={stations.shell} dispose={null} />
-        {stations.ahead.map((l, i) => (
+        <primitive object={stations.grid} dispose={null} />
+        {stations.floors.map((l, i) => (
           <primitive key={i} object={l} dispose={null} />
         ))}
+        <primitive object={stations.dive} dispose={null} />
+        <primitive object={stations.shell} dispose={null} />
+        <primitive object={stations.thread.lines} dispose={null} />
         <primitive object={stack.group} dispose={null} />
         <group ref={room} visible={false}>
           <GrowRoom thermal={thermal} compact={compact} />
@@ -551,6 +653,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           <Earth home={HOME} active={stage === 'globe'} spin visitors={visitors} homeLabel={homeLabel} tip={tip} />
         </group>
         <Director
+          load={load}
           thermal={thermal}
           compact={compact}
           introPanel={introPanel}
