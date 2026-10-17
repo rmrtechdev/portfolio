@@ -41,7 +41,7 @@ export function Hero({ thermal, onThermal }) {
         </svg>
         <span className="hero-ring-core" aria-hidden="true">↓</span>
       </a>
-      <h1 className="sr-only">Raymond M. Roman — full-stack engineer</h1>
+      <h1 className="sr-only">R.M.ROMAN — full-stack engineer</h1>
     </section>
   );
 }
