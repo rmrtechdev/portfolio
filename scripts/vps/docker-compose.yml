@@ -1,0 +1,26 @@
+# rmrtech.dev on the VPS, at /srv/rmrtech. Independent of the client stacks under /opt.
+services:
+  site:
+    image: nginx:1.27-alpine
+    container_name: rmrtech-site
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:8090:80
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    networks: [rmrtech-net]
+
+  tunnel:
+    # Pinned: an unattended `latest` pull is not something this site should depend on.
+    image: cloudflare/cloudflared:2026.6.1
+    container_name: rmrtech-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    # TUNNEL_TOKEN only; kept out of the command line so `docker inspect` never shows it.
+    env_file: tunnel.env
+    depends_on: [site]
+    networks: [rmrtech-net]
+
+networks:
+  rmrtech-net:
+    external: true
