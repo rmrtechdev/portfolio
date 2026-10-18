@@ -404,6 +404,10 @@ button {
 }
 .chip {
   border-color: var(--cyan);
+}
+.topbar-chips {
+  display: flex;
+  gap: 8px;
   margin-left: auto;
   margin-right: 20px;
 }
@@ -908,6 +912,26 @@ button {
   inset: 0;
   z-index: 5;
   pointer-events: none;
+}
+/* Fades a few seconds after the hero shows in tilt mode: the panels around the viewer are otherwise easy to miss. */
+.ar-hint {
+  position: fixed;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  color: var(--cyan);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: ar-hint 5s ease-in forwards;
+}
+@keyframes ar-hint {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 /* The hero room and the About globe are in the world layer, so these sections (and main around them) pass
    pointer events through to it everywhere except their own controls. */
@@ -1597,6 +1621,17 @@ body {
   }
   .chip {
     margin-top: 0;
+  }
+  .topbar-chips {
+    margin-right: 0;
+  }
+  .chip-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .hero-kicker {
     bottom: 18px;

@@ -10,7 +10,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { COARSE, TILT_ASK, jarvisLink, loadShown, startTilt, tilt } from '../env';
+import { COARSE, TILT_ASK, ar, jarvisLink, loadShown, startTilt, tilt } from '../env';
 import { HOME, PROJECTS, REEL } from '../data';
 import { Earth } from './Globe';
 import { plantGeometry, plantRows } from './growRoom';
@@ -113,7 +113,9 @@ function Panel({ src, position, index, active, onSelect, register, face, lazy })
     const t = clock.elapsedTime;
     if (active) {
       frustum.setFromProjectionMatrix(viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-      const v = frustum.intersectsSphere(panelSphere.set(group.current.getWorldPosition(panelSphere.center), PANEL_W * 0.6));
+      group.current.getWorldPosition(panelSphere.center);
+      // Lazy panels wait for their centre, so one peeking in at the edge as a cue doesn't start its download.
+      const v = lazy ? frustum.containsPoint(panelSphere.center) : frustum.intersectsSphere(panelSphere);
       if (v !== seenNow.current) setSeen((seenNow.current = v));
     }
     group.current.rotation.x = face ? face[0] : 0;
@@ -247,6 +249,8 @@ const GRID_DIVS = 40;
 const SHELL_R = 2.75;
 // Page pixels of scroll per world unit travelled down the river after About.
 const PX_PER_UNIT = 50;
+// AR view: how far ahead of the viewer About's globe floats, and how much it shrinks to sit in the room.
+const AR_GLOBE_DIST = 5.5;
 // About holds the globe framed for this much scroll before the camera flies on.
 const HOLD = 0.3;
 // The globe canvas this replaces: camera |(0, 0.32, 4.2)| from a radius-1.3 globe at fov 46.
@@ -337,12 +341,12 @@ function useStations() {
  * Owns the camera and the render. The page scroll is the flight: hero orbit -> dive through the floor ->
  * globe framed under About's text -> past the globe into the river for the rest of the page.
  */
-function Director({ load, thermal, compact, introPanel, rig, room, stations, stack, entering, onEntered, onStage, onReady }) {
+function Director({ load, thermal, compact, introPanel, rig, room, globe, stations, stack, entering, onEntered, onStage, onReady }) {
   const { gl, scene, camera, size } = useThree();
-  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null });
+  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null, msY: 0, lkYaw: 0, lkPitch: 0, arK: 0 });
   const intro = useRef(null);
   const look = useMemo(() => new THREE.Vector3(0, 1.1, 0), []);
-  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3(), dev: new THREE.Vector3(), q: new THREE.Quaternion(), eul: new THREE.Euler() }), []);
+  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3(), dev: new THREE.Vector3(), q: new THREE.Quaternion(), eul: new THREE.Euler(), base: new THREE.Quaternion(), m4: new THREE.Matrix4(), gpos: new THREE.Vector3() }), []);
 
   const { composer, bokeh, thermalPass, afterPass, controls } = useMemo(() => {
     const composer = new EffectComposer(gl);
@@ -394,7 +398,10 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
 
   useEffect(() => composer.setSize(size.width, size.height), [size, composer]);
   useEffect(() => {
-    const onMove = (e) => (state.current.msX = (e.clientX / innerWidth - 0.5) * 2);
+    const onMove = (e) => {
+      state.current.msX = (e.clientX / innerWidth - 0.5) * 2;
+      state.current.msY = (e.clientY / innerHeight - 0.5) * 2;
+    };
     addEventListener('pointermove', onMove, { passive: true });
     return () => {
       removeEventListener('pointermove', onMove);
@@ -407,6 +414,7 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     const s = state.current;
     const now = performance.now();
     const H = innerHeight;
+    const AR = ar.on;
     const { floor, floors, grid, dive, shell, thread } = stations;
     stepStrands(delta);
 
@@ -443,12 +451,12 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
         controls.autoRotateSpeed = compact ? 0.15 : 0.35;
       }
     } else if (s.introDone && !s.snap) {
-      // AR mode: the phone aims the view, so the camera holds the spot the intro landed on instead of orbiting.
-      if (tilt.on) {
-        controls.autoRotate = false;
-        camera.position.lerp(intro.current.to, 0.04);
-      }
-      controls.enabled = true;
+      // Phone tilt and AR view aim the view themselves, so the camera holds the spot the intro landed on instead of
+      // orbiting (and the mouse must not drag it against the look-around).
+      const still = tilt.on || AR;
+      controls.autoRotate = !still;
+      if (still) camera.position.lerp(intro.current.to, 0.04);
+      controls.enabled = !AR;
       controls.update();
       look.copy(controls.target);
     }
@@ -461,9 +469,9 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     s.lastY = y;
     const aboutTop = about ? about.offsetTop : H;
     const aboutEnd = about ? aboutTop + about.offsetHeight : 2 * H;
-    const p = easeInOutCubic(clamp01(y / aboutTop));
-    const q = clamp01((y - aboutTop - HOLD * H) / Math.max(1, aboutEnd - aboutTop - HOLD * H));
-    const travel = Math.max(0, y - aboutEnd) / PX_PER_UNIT;
+    const p = AR ? 0 : easeInOutCubic(clamp01(y / aboutTop));
+    const q = AR ? 0 : clamp01((y - aboutTop - HOLD * H) / Math.max(1, aboutEnd - aboutTop - HOLD * H));
+    const travel = AR ? 0 : Math.max(0, y - aboutEnd) / PX_PER_UNIT;
 
     // Globe framing: where the old globe canvas sat under About's text when the section is aligned.
     let dist = 4.2;
@@ -502,10 +510,12 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       camera.lookAt(tmp.tgt);
     } else camera.lookAt(look);
 
+    // AR view aims the whole page; outside it the phone look-around is hero-only.
+    tmp.base.copy(camera.quaternion);
     // AR look-around: the device's orientation, read the way three's DeviceOrientationControls does (stable with
     // the phone upright, where raw alpha is not), turns the view 1:1 from where the camera stands, relative to how
     // the phone was held at the first reading.
-    if (tilt.on && tilt.e && !flying) {
+    if (tilt.on && tilt.e && (AR || !flying)) {
       const [a, b, g] = tilt.e.map(THREE.MathUtils.degToRad);
       tmp.q.setFromEuler(tmp.eul.set(b, a, -g, 'YXZ')).multiply(DEVICE_TO_CAMERA);
       tmp.dev.set(0, 0, -1).applyQuaternion(tmp.q);
@@ -517,7 +527,14 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       s.tiltPitch += (THREE.MathUtils.clamp(pitch - s.tiltBase[1], -0.8, 0.8) - s.tiltPitch) * 0.15;
       camera.rotateOnWorldAxis(THREE.Object3D.DEFAULT_UP, s.tiltYaw);
       camera.rotateX(s.tiltPitch);
+    } else if (AR && !COARSE) {
+      s.lkYaw += (-s.msX * 0.45 - s.lkYaw) * 0.1;
+      s.lkPitch += (-s.msY * 0.2 - s.lkPitch) * 0.1;
+      camera.rotateOnWorldAxis(THREE.Object3D.DEFAULT_UP, s.lkYaw);
+      camera.rotateX(s.lkPitch);
     }
+    tmp.m4.makeRotationFromQuaternion(tmp.q.copy(camera.quaternion).invert().multiply(tmp.base));
+    thread.uniforms.uLook.value.setFromMatrix4(tmp.m4);
 
     // Pin the globe where the page layout expects it while it is framed, easing in and out of the flight.
     const pin = smooth(0.85, 1, p) * (1 - smooth(0, 0.35, q));
@@ -594,6 +611,8 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     dive.rotation.y = clock.elapsedTime * 0.05 + p * 2;
     shell.material.opacity = 0.5 * smooth(0.55, 0.9, p) * (1 - smooth(0.5, 1, q));
     shell.visible = shell.material.opacity > 0.01;
+    shell.position.copy(GLOBE);
+    shell.scale.setScalar(SHELL_R);
     shell.rotation.set(0.25, clock.elapsedTime * 0.04, 0);
     // Past About the thread takes the shape of whichever section holds the screen, and flies as a tunnel
     // through the open gaps between them.
@@ -603,6 +622,24 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       const r = el.getBoundingClientRect();
       return smooth(H * 0.95, H * 0.4, r.top) * smooth(H * 0.05, H * 0.6, r.bottom);
     };
+    // AR: About's globe floats ahead of the viewer in the home frame (world-anchored) while About holds the screen.
+    const gw = AR && intro.current ? hold(about) : 0;
+    if (AR && intro.current) {
+      const sc = (compact ? 0.4 : 0.6) * gw;
+      tmp.gpos.subVectors(look, intro.current.to).normalize().multiplyScalar(AR_GLOBE_DIST).add(intro.current.to);
+      tmp.gpos.y += 0.5;
+      globe.current.position.copy(tmp.gpos);
+      globe.current.scale.setScalar(Math.max(sc, 1e-3));
+      globe.current.visible = gw > 0.01;
+      shell.position.copy(tmp.gpos);
+      shell.scale.setScalar(SHELL_R * sc);
+      shell.material.opacity = 0.5 * gw;
+      shell.visible = gw > 0.01;
+    } else {
+      globe.current.position.copy(GLOBE);
+      globe.current.scale.setScalar(1);
+      globe.current.visible = true;
+    }
     const want = new THREE.Vector4(hold(document.getElementById('team')), stack.group.visible ? stack.uniforms.uForm.value : 0, hold(document.getElementById('work')), 0);
     // Contact: the strands lock onto the Jarvis hologram wherever its own canvas has drawn it. It is their end
     // point, so they never let go of it; they fade out with it instead (see uOpacity below).
@@ -616,9 +653,16 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     jarvisLink.possess = tu.uW.value.w;
     tu.uTan.value = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     tu.uTime.value = clock.elapsedTime;
-    tu.uTravel.value = travel;
+    s.arK += ((AR ? 1 : 0) - s.arK) * (1 - Math.exp(-Math.min(delta, 0.1) * 4));
+    tu.uAR.value = s.arK;
+    // In AR the room recedes into fog as the page scrolls off the hero, so the cards stay legible over the panels.
+    s.fog ??= [scene.fog.near, scene.fog.far];
+    const fk = s.arK * smooth(0.1 * H, H, y);
+    scene.fog.near = THREE.MathUtils.lerp(s.fog[0], 3, fk);
+    scene.fog.far = THREE.MathUtils.lerp(s.fog[1], 12, fk);
+    tu.uTravel.value = THREE.MathUtils.lerp(travel, y / PX_PER_UNIT, s.arK);
     tu.uAspect.value = innerWidth / H;
-    tu.uOpacity.value = smooth(0.05, 0.5, q) * (0.85 + Math.min(0.5, s.vel * 0.02));
+    tu.uOpacity.value = THREE.MathUtils.lerp(smooth(0.05, 0.5, q), smooth(0.1, 1, y / H), s.arK) * (0.85 + Math.min(0.5, s.vel * 0.02));
     // Nothing follows the hologram: the strands fade out with it as it leaves the top of the screen.
     if (jarvisLink.on) tu.uOpacity.value *= 1 - smooth(H * 0.15, -H * 0.35, jarvisLink.y);
     thread.lines.visible = tu.uOpacity.value > 0.01;
@@ -626,12 +670,12 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     if (bokeh) {
       bokeh.uniforms.focus.value = camera.position.distanceTo(flying ? tmp.tgt : look);
       // The proxy only matches the landed floor, so depth of field waits for the knot to settle.
-      bokeh.enabled = p < 0.5 && e >= 1;
+      bokeh.enabled = !AR && p < 0.5 && e >= 1;
     }
     s.msXs += (s.msX - s.msXs) * 0.046;
     rig.current.rotation.x += (s.msXs * 0.045 - rig.current.rotation.x) * 0.07;
 
-    const stage = !s.entered ? 'loading' : p < 0.6 ? 'hero' : q < 0.95 ? 'globe' : 'river';
+    const stage = !s.entered ? 'loading' : AR ? (gw > 0.5 ? 'globe' : 'hero') : p < 0.6 ? 'hero' : q < 0.95 ? 'globe' : 'river';
     if (stage !== s.stage) onStage((s.stage = stage));
 
     s.thermal += ((thermal ? 1 : 0) - s.thermal) * 0.08;
@@ -661,23 +705,28 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
   // Phones: back off until the compact column (about 4.6 units wide) fits the portrait width, plus its depth.
   const camZ = compact ? Math.max(8.5, 2.3 / (Math.tan(THREE.MathUtils.degToRad(55 / 2)) * (innerWidth / innerHeight)) + 1) : 9;
   // With AR look-around on, phones also get the rest of the reel wrapped around the viewer (left, right, overhead),
-  // 9 units out from where the camera stands and turned to face it. Lazy, so they add nothing to load time.
-  const [ar, setAr] = useState(tilt.on);
+  // 7 units out from where the camera stands and turned to face it. A short swivel reaches the sides; the overhead
+  // one peeks in at the top edge as the cue that there is more around. Lazy, so they add nothing to load time.
+  const [tiltOn, setTiltOn] = useState(tilt.on);
+  const [arOn, setArOn] = useState(ar.on);
   useEffect(() => {
-    const on = () => setAr(true);
+    const on = () => setTiltOn(true);
+    const sync = () => setArOn(ar.on);
     if (tilt.on) on();
     addEventListener('rmr-tilt', on);
-    return () => removeEventListener('rmr-tilt', on);
+    addEventListener('rmr-ar', sync);
+    return () => (removeEventListener('rmr-tilt', on), removeEventListener('rmr-ar', sync));
   }, []);
   const around =
-    compact && ar
-      ? [[-0.95, 0.1], [0.95, 0], [0.25, 0.7]].map(([az, el]) => ({
-          pos: [9 * Math.sin(az) * Math.cos(el), 1.4 + 9 * Math.sin(el), camZ - 9 * Math.cos(az) * Math.cos(el)],
+    compact && (tiltOn || arOn)
+      ? [[-0.6, 0.08], [0.6, 0], [0.15, 0.5]].map(([az, el]) => ({
+          pos: [7 * Math.sin(az) * Math.cos(el), 1.4 + 7 * Math.sin(el), camZ - 7 * Math.cos(az) * Math.cos(el)],
           face: [el, -az],
         }))
       : [];
   const rig = useRef();
   const room = useRef();
+  const globe = useRef();
   const introPanel = useRef(null);
   const homeLabel = useRef(null);
   const tip = useRef(null);
@@ -710,15 +759,15 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           <group ref={rig}>
             <NeonBars />
             {layout.map((pos, i) => (
-              <Panel key={REEL[i].title} src={REEL[i].video} position={pos} index={i} active={stage === 'hero'} onSelect={select} register={register} />
+              <Panel key={REEL[i].title} src={REEL[i].video} position={pos} index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />
             ))}
           </group>
           {around.map(({ pos, face }, k) => {
             const i = layout.length + k;
-            return <Panel key={REEL[i].title} src={REEL[i].video} position={pos} face={face} lazy index={i} active={stage === 'hero'} onSelect={select} register={register} />;
+            return <Panel key={REEL[i].title} src={REEL[i].video} position={pos} face={face} lazy index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />;
           })}
         </group>
-        <group position={GLOBE}>
+        <group ref={globe} position={GLOBE}>
           <Earth home={HOME} active={stage === 'globe'} spin visitors={visitors} homeLabel={homeLabel} tip={tip} />
         </group>
         <Director
@@ -728,6 +777,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           introPanel={introPanel}
           rig={rig}
           room={room}
+          globe={globe}
           stations={stations}
           stack={stack}
           entering={entering}
@@ -736,6 +786,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           onReady={onReady}
         />
       </Canvas>
+      {around.length > 0 && stage === 'hero' && <p className="ar-hint nav-font">◀ Turn to look around ▶</p>}
       <div className="world-labels" style={{ visibility: stage === 'globe' ? 'visible' : 'hidden' }}>
         <p className="globe-home nav-font" ref={homeLabel}>
           <b>{HOME.label}</b> {HOME.tag}

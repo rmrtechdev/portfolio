@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SOCIALS, openMail } from '../data';
 import { useTypewriter } from '../fx/hooks';
-import { loadShown } from '../env';
+import { COARSE, THREE_D, TILT_ASK, ar, loadShown, setAR, startTilt } from '../env';
 
 export const SECTIONS = [
   ['top', 'Main'],
@@ -63,11 +63,26 @@ const BADGES = [
 
 export function TopBar({ started }) {
   const [inverted, setInverted] = useState(false);
+  const [arOn, setArOn] = useState(ar.on);
   const brand = useTypewriter('R.M.ROMAN', { start: started, speed: 28 });
   const tag = useTypewriter('Full-stack, end to end.', { start: brand.done, speed: 14 });
   useEffect(() => {
     document.body.classList.toggle('site-inverted', inverted);
   }, [inverted]);
+  useEffect(() => {
+    const sync = () => setArOn(ar.on);
+    addEventListener('rmr-ar', sync);
+    return () => removeEventListener('rmr-ar', sync);
+  }, []);
+  // requestPermission has to be called inside the click's user gesture, so this can't wait for an effect.
+  const toggleAR = async () => {
+    if (ar.on) return setAR(false);
+    if (COARSE) {
+      if (!TILT_ASK) startTilt();
+      else if ((await DeviceOrientationEvent.requestPermission().catch(() => null)) === 'granted') startTilt();
+    }
+    setAR(true);
+  };
   return (
     <header className={started ? 'topbar in' : 'topbar'}>
       <div className="brand-block">
@@ -94,9 +109,16 @@ export function TopBar({ started }) {
           ))}
         </ul>
       </div>
-      <button className={inverted ? 'chip nav-font on' : 'chip nav-font'} onClick={() => setInverted(!inverted)} aria-pressed={inverted}>
-        <span className="chip-icon" aria-hidden="true">{inverted ? '◑' : '◐'}</span> Invert site
-      </button>
+      <div className="topbar-chips">
+        {THREE_D && (
+          <button className={arOn ? 'chip nav-font on' : 'chip nav-font'} onClick={toggleAR} aria-pressed={arOn}>
+            <span className="chip-icon" aria-hidden="true">⌖</span> <span className="chip-label">AR view</span>
+          </button>
+        )}
+        <button className={inverted ? 'chip nav-font on' : 'chip nav-font'} onClick={() => setInverted(!inverted)} aria-pressed={inverted}>
+          <span className="chip-icon" aria-hidden="true">{inverted ? '◑' : '◐'}</span> <span className="chip-label">Invert site</span>
+        </button>
+      </div>
     </header>
   );
 }

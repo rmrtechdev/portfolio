@@ -29,5 +29,12 @@ export function startTilt() {
   dispatchEvent(new Event('rmr-tilt'));
 }
 
+/** AR view: camera stays at the hero spot and look-around covers the whole page. Fires 'rmr-ar' so React state can follow. */
+export const ar = { on: false };
+export function setAR(on) {
+  ar.on = on;
+  dispatchEvent(new Event('rmr-ar'));
+}
+
 /** Where the Jarvis hologram sits on screen (client px), written by its renderer; `possess` flows back from the strands. */
 export const jarvisLink = { x: 0, y: 0, r: 0, on: false, possess: 0 };

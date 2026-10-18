@@ -11,6 +11,11 @@ const Globe = lazy(() => import('../three/Globe'));
 /** The room itself lives in three/World.jsx behind the page; this is the DOM laid over it. */
 export function Hero({ thermal, onThermal }) {
   const [tiltAsk, setTiltAsk] = useState(THREE_D && COARSE && TILT_ASK);
+  useEffect(() => {
+    const hide = () => setTiltAsk(false);
+    addEventListener('rmr-tilt', hide);
+    return () => removeEventListener('rmr-tilt', hide);
+  }, []);
   const askTilt = () =>
     DeviceOrientationEvent.requestPermission()
       .then((r) => r === 'granted' && startTilt())
