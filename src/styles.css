@@ -12,7 +12,7 @@
   --cyan-rgb: 8, 253, 216;
   --pink-rgb: 255, 105, 180;
   --display: 'Space Grotesk', system-ui, sans-serif;
-  --copy: #b6bac2;
+  --copy: #cdd0d6;
   --kode: 'Kode Mono', ui-monospace, monospace;
   --anon: 'Anonymous Pro', ui-monospace, monospace;
   --body: 'Inter', system-ui, sans-serif;
@@ -105,7 +105,7 @@ html::-webkit-scrollbar {
 body {
   background: transparent;
   color: var(--fg);
-  font: 400 15px/1.55 var(--body);
+  font: 500 15px/1.55 var(--body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -153,6 +153,7 @@ button {
 .nav-font {
   font-family: var(--anon);
   font-size: 0.74rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -512,6 +513,9 @@ button {
 .hud-toggle:hover {
   background: var(--pink);
 }
+.tilt-toggle {
+  top: calc(45% + 40px);
+}
 .hero-kicker {
   position: absolute;
   left: 92px;
@@ -519,7 +523,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--grey);
+  color: var(--fg);
 }
 .dot {
   width: 7px;
@@ -626,7 +630,13 @@ button {
 .giant-lead {
   grid-column: 2;
   padding-right: 0.25em;
-  color: #6f7480;
+  color: #9aa0ab;
+}
+/* Strands cross this line at its widest; a soft dark box behind the words keeps both halves legible. */
+.giant-lead,
+.giant-slot {
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 28px 14px rgba(0, 0, 0, 0.5);
 }
 .giant-slot {
   grid-column: 3;
@@ -714,7 +724,7 @@ button {
   padding: 12px 14px;
   background: #000;
   border: 1px solid var(--mid);
-  font: 400 0.9rem / 1.55 var(--body);
+  font: 600 0.9rem / 1.55 var(--body);
   color: var(--copy);
 }
 .gbox.in {
@@ -764,13 +774,15 @@ button {
   cursor: ew-resize;
   touch-action: pan-y;
   user-select: none;
+  /* A dark band under the line only, so the strands stay visible above and below it. */
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9) 22%, rgba(0, 0, 0, 0.9) 78%, transparent);
 }
 .moving-track {
   display: inline-flex;
   white-space: nowrap;
   font: 700 clamp(5rem, 17vw, 16rem) / 0.9 var(--display);
   text-transform: uppercase;
-  color: var(--ghost);
+  color: #4a4a4a;
   filter: url(#threshStrong);
   animation: marquee 90s linear infinite;
 }
@@ -778,6 +790,7 @@ button {
    keep their counters open. */
 .moving.small .moving-track {
   font-size: clamp(2.2rem, 6vw, 5.5rem);
+  color: var(--mid);
   filter: url(#thresh);
 }
 @keyframes marquee {
@@ -916,6 +929,15 @@ main > * {
 .hero .hero-ring {
   pointer-events: auto;
 }
+/* All copy sits over the live strands: a tight black halo keeps glyph edges clean while the strands still
+   show between lines. Inherited, so it is switched off where a text-shadow would bleed through. */
+body {
+  text-shadow: 0 0 2px #000, 0 0 8px #000, 0 0 18px rgba(0, 0, 0, 0.85);
+}
+.head span,
+.moving-track {
+  text-shadow: none;
+}
 
 /* Open ground between chapters: the strand thread flies through here as a tunnel before reshaping
    around the next section. */
@@ -937,6 +959,7 @@ main > * {
   text-align: right;
   margin-bottom: clamp(24px, 3.4vw, 48px);
   min-height: 1.05em;
+  filter: drop-shadow(0 0 14px #000);
 }
 .head span {
   background: linear-gradient(180deg, #f4f5f7 10%, #6f7480 95%);
@@ -1013,7 +1036,7 @@ main > * {
 }
 .pf-copy {
   color: var(--copy);
-  font: 400 0.95rem / 1.65 var(--body);
+  font: 600 0.95rem / 1.65 var(--body);
 }
 .pf-stage {
   position: relative;
@@ -1101,10 +1124,11 @@ main > * {
   color: var(--dim);
   font-size: 0.72rem;
 }
+/* Lead-in: World.jsx spreads the strands' forming of the workstation across this space, finishing as the first card arrives. */
 .svc-grid {
   display: grid;
   gap: 64px;
-  padding-bottom: 10vh;
+  padding: 60svh 0 10vh;
 }
 .sa-card {
   display: flex;
@@ -1136,7 +1160,7 @@ main > * {
 }
 .sa-copy {
   color: var(--copy);
-  font: 400 0.95rem / 1.65 var(--body);
+  font: 600 0.95rem / 1.65 var(--body);
 }
 .sa-art {
   height: clamp(170px, 18vw, 240px);
@@ -1171,7 +1195,7 @@ main > * {
 }
 .pj-copy {
   color: var(--copy);
-  font: 400 0.8rem / 1.8 var(--anon);
+  font: 700 0.8rem / 1.8 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   max-width: 56ch;
@@ -1230,7 +1254,7 @@ main > * {
 }
 .pj-tag {
   color: var(--pink);
-  font: 400 0.8rem / 1.6 var(--anon);
+  font: 700 0.8rem / 1.6 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1248,7 +1272,7 @@ main > * {
   gap: 10px;
   align-items: baseline;
   color: var(--copy);
-  font: 400 0.78rem / 1.7 var(--anon);
+  font: 700 0.78rem / 1.7 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -1407,7 +1431,7 @@ main > * {
 }
 .ik-sub {
   color: var(--copy);
-  font: 400 0.9rem / 1.5 var(--body);
+  font: 500 0.9rem / 1.5 var(--body);
   text-transform: none;
   letter-spacing: 0;
   margin-bottom: 14px;
@@ -1420,7 +1444,7 @@ main > * {
 }
 .ik-chip {
   padding: 7px 11px;
-  font: 400 0.72rem var(--anon);
+  font: 700 0.72rem var(--anon);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--grey);
@@ -1449,7 +1473,7 @@ main > * {
 }
 .ik-fields input,
 .ik-fields textarea {
-  font: 400 0.9rem var(--body);
+  font: 500 0.9rem var(--body);
   color: #e0e0e0;
   background: #111;
   border: 1px solid transparent;
@@ -1609,6 +1633,27 @@ main > * {
   /* No room to pin it beside the cards: the strand workstation moves behind them (three/World.jsx). */
   .svc-scene {
     display: none;
+  }
+  .svc-grid {
+    padding-top: 75svh;
+  }
+  /* Phones put the strands and the workstation right behind the cards, so each card gets its own backing.
+     No backdrop blur: it would re-blur the WebGL canvas every frame on a phone GPU. */
+  .pf-card,
+  .sa-card,
+  .pj-card,
+  .intake {
+    padding-inline: 12px;
+    background: rgba(0, 0, 0, 0.62);
+  }
+  /* The strand-possessed hologram is the last stop: pinned full-screen at the start of the zone, with Archive
+     and Contact scrolling over it. The negative margin lays the sections over the band instead of after it. */
+  .jarvis-zone > .car-band {
+    position: sticky;
+    inset: auto;
+    top: 0;
+    height: 100svh;
+    margin-bottom: -100svh;
   }
   .hero-kicker {
     left: var(--gutter);

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import obfuscator from 'rollup-plugin-obfuscator';
@@ -31,7 +32,13 @@ export default defineConfig({
   ],
   // Served from rmrtechdev.github.io/portfolio/
   base: '/portfolio/',
-  server: { port: 3000 },
+  // host: reachable from phones on the LAN for on-device review. HTTPS (npm run dev:https) is needed for iOS
+  // motion permission; the cert covers the LAN IP at the time of `npm run cert:dev`, so rerun it if the IP changes.
+  server: {
+    port: 3000,
+    host: true,
+    https: process.env.DEV_HTTPS ? { key: readFileSync('.cert/key.pem'), cert: readFileSync('.cert/cert.pem') } : undefined,
+  },
   // Tailnet names used by `tailscale serve` to reach the preview from other devices.
   preview: { allowedHosts: ['minimac', 'minimac.tail279361.ts.net'] },
   // three.js lands in its own lazy chunk (~240 KB gzip), loaded after first paint.

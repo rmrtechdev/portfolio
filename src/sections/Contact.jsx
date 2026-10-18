@@ -113,8 +113,10 @@ export function JarvisZone({ children }) {
     if (!WEBGL || REDUCED) return;
     let dispose;
     let cancelled = false;
-    // Measured against the band itself, which starts above the zone (see .jarvis-zone > .car-band).
+    // Measured against the band itself, which starts above the zone (see .jarvis-zone > .car-band). On phones
+    // the band is pinned to the viewport instead, so the hologram is simply centred in it.
     const anchor = () => {
+      if (getComputedStyle(band.current).position === 'sticky') return band.current.clientHeight / 2;
       const contact = zone.current.querySelector('#contact');
       return contact ? contact.getBoundingClientRect().top - band.current.getBoundingClientRect().top : band.current.clientHeight / 2;
     };

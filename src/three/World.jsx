@@ -10,7 +10,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { COARSE, jarvisLink, loadShown } from '../env';
+import { COARSE, TILT_ASK, jarvisLink, loadShown, startTilt, tilt } from '../env';
 import { HOME, PROJECTS, REEL } from '../data';
 import { Earth } from './Globe';
 import { plantGeometry, plantRows } from './growRoom';
@@ -320,7 +320,7 @@ function useStations() {
  */
 function Director({ load, thermal, compact, introPanel, rig, room, stations, stack, entering, onEntered, onStage, onReady }) {
   const { gl, scene, camera, size } = useThree();
-  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value });
+  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0 });
   const intro = useRef(null);
   const look = useMemo(() => new THREE.Vector3(0, 1.1, 0), []);
   const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3() }), []);
@@ -368,6 +368,7 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     });
     // OrbitControls claims every touch (touch-action: none); on phones the page must scroll instead.
     if (COARSE) controls.disconnect();
+    if (COARSE && !TILT_ASK) startTilt();
     gl.domElement.style.touchAction = 'pan-y';
     return { composer, bokeh, thermalPass, afterPass, controls };
   }, []);
@@ -420,9 +421,19 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       if (t >= 1) {
         s.introDone = true;
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.35;
+        controls.autoRotateSpeed = compact ? 0.15 : 0.35;
       }
     } else if (s.introDone && !s.snap) {
+      // Tilt is applied as a change since last frame, so it adds to the auto-orbit instead of fighting it.
+      if (tilt.on) {
+        const dy = (tilt.yaw - s.tiltYaw) * 0.08;
+        const dp = (tilt.pitch - s.tiltPitch) * 0.08;
+        s.tiltYaw += dy;
+        s.tiltPitch += dp;
+        const off = camera.position.clone().sub(controls.target).applyAxisAngle(THREE.Object3D.DEFAULT_UP, dy);
+        off.applyAxisAngle(new THREE.Vector3().crossVectors(THREE.Object3D.DEFAULT_UP, off).normalize(), dp);
+        camera.position.copy(controls.target).add(off);
+      }
       controls.enabled = true;
       controls.update();
       look.copy(controls.target);
@@ -502,7 +513,9 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       const pr = pinEl.getBoundingClientRect();
       const backdrop = stageEl.getBoundingClientRect().height < 1;
       const r = backdrop ? { left: 0, width: innerWidth, top: 0, height: H } : stageEl.getBoundingClientRect();
-      const form = smooth(H, H * 0.35, backdrop ? pr.top : r.top) * (1 - smooth(H * 0.9, H * 0.3, pr.bottom));
+      // Forming spans the cards' lead-in: from the pin entering until the first card is a third of the way up.
+      const lead = pinEl.querySelector('.sa-card')?.getBoundingClientRect().top ?? pr.top;
+      const form = smooth(H + lead - pr.top, H * 0.7, lead) * (1 - smooth(H * 0.9, H * 0.3, pr.bottom));
       stack.group.visible = form > 0.001;
       if (stack.group.visible) {
         s.stackYaw = THREE.MathUtils.clamp(s.stackYaw + (y - s.stackY) * 0.0003, -Math.PI / 2, Math.PI / 2);
@@ -560,11 +573,12 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       return smooth(H * 0.95, H * 0.4, r.top) * smooth(H * 0.05, H * 0.6, r.bottom);
     };
     const want = new THREE.Vector4(hold(document.getElementById('team')), stack.group.visible ? stack.uniforms.uForm.value : 0, hold(document.getElementById('work')), 0);
-    // Contact: the strands lock onto the Jarvis hologram wherever its own canvas has drawn it.
+    // Contact: the strands lock onto the Jarvis hologram wherever its own canvas has drawn it. It is their end
+    // point, so they never let go of it; they fade out with it instead (see uOpacity below).
     if (jarvisLink.on) {
       const toWorld = (2 * 6 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / H;
       tu.uJarvis.value.set((jarvisLink.x - innerWidth / 2) * toWorld, (H / 2 - jarvisLink.y) * toWorld, -6, JARVIS_CAGE * jarvisLink.r * toWorld);
-      want.w = smooth(H * 1.2, H * 0.6, jarvisLink.y) * smooth(-H * 0.5, H * 0.05, jarvisLink.y);
+      want.w = smooth(H * 1.2, H * 0.6, jarvisLink.y);
     }
     // Eased in time as well as scroll, so a flick of the wheel still reads as the strands flying across.
     tu.uW.value.lerp(want, 1 - Math.exp(-Math.min(delta, 0.1) * 5));
@@ -574,6 +588,8 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
     tu.uTravel.value = travel;
     tu.uAspect.value = innerWidth / H;
     tu.uOpacity.value = smooth(0.05, 0.5, q) * (0.85 + Math.min(0.5, s.vel * 0.02));
+    // Nothing follows the hologram: the strands fade out with it as it leaves the top of the screen.
+    if (jarvisLink.on) tu.uOpacity.value *= 1 - smooth(H * 0.15, -H * 0.35, jarvisLink.y);
     thread.lines.visible = tu.uOpacity.value > 0.01;
 
     if (bokeh) {
@@ -609,8 +625,10 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
 export default function World({ thermal, progress, entering, onEntered, onReady, visitors }) {
   const compact = window.innerWidth < 760;
   const layout = compact
-    ? [[-1.5, 1.6, -0.6], [1.5, 0.4, 0.2], [-0.6, -0.8, 1.2]]
+    ? [[-0.8, 2.6, -0.6], [0.8, 0.9, 0.2], [-0.5, -0.8, 1.0]]
     : [[-3.9, 1.7, -1.6], [-1.5, 0.4, 0.3], [1.5, 1.7, -0.6], [3.6, 0.2, -1.8], [0.1, 3.0, -2.8]];
+  // Phones: back off until the compact column (about 4.6 units wide) fits the portrait width, plus its depth.
+  const camZ = compact ? Math.max(8.5, 2.3 / (Math.tan(THREE.MathUtils.degToRad(55 / 2)) * (innerWidth / innerHeight)) + 1) : 9;
   const rig = useRef();
   const room = useRef();
   const introPanel = useRef(null);
@@ -628,9 +646,9 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
 
   return (
     <div className={stage === 'loading' ? 'world loading' : 'world'} aria-hidden="true">
-      <Canvas dpr={[1, 1.25]} camera={{ position: [0, 1.4, compact ? 8.5 : 9], fov: compact ? 55 : 42 }} gl={{ antialias: false, powerPreference: 'high-performance' }}>
+      <Canvas dpr={[1, 1.25]} camera={{ position: [0, 1.4, camZ], fov: compact ? 55 : 42 }} gl={{ antialias: false, powerPreference: 'high-performance' }}>
         <color attach="background" args={['#050505']} />
-        <fog attach="fog" args={['#050505', 8, 22]} />
+        <fog attach="fog" args={['#050505', camZ - 1, camZ + 13]} />
         <Lights />
         <primitive object={stations.grid} dispose={null} />
         {stations.floors.map((l, i) => (

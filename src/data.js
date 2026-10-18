@@ -50,11 +50,10 @@ export const PROJECTS = [
     summary:
       'An independent artist needed a site that felt like walking into the show and could sell originals without a developer in the loop. I built a scroll-driven 3D gallery with Stripe checkout, managed entirely from a Strapi CMS.',
     scope: [
-      'Walkable 3D gallery: corridor, series rooms, neon signage, and eased camera transitions',
+      'Walkable 3D gallery: corridor, series rooms, and eased camera transitions',
       'CMS-to-checkout automation: publishing a piece in Strapi creates its Stripe product, and the payment webhook marks it sold',
       'Store, about, and newsletter pages, swipe navigation on mobile, and deep links straight into any room',
       'Performance tuning: opacity-only animation, no per-frame repaints, and a loader that tracks real asset readiness',
-      'Next phases scoped with the client: PostHog funnels, commission inquiries, Printful print-on-demand',
     ],
     stack: ['Next.js', 'React Three Fiber', 'Three.js', 'Strapi', 'Stripe', 'Cloudinary', 'Vercel'],
     video: media('video/sfshowing.mp4'),

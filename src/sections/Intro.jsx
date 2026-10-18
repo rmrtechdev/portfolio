@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { DISCIPLINES, GIANT_LEAD, HOME, MARQUEE, REEL } from '../data';
-import { REDUCED, THREE_D, WEBGL } from '../env';
+import { COARSE, REDUCED, THREE_D, TILT_ASK, WEBGL, startTilt } from '../env';
 import { Trail } from '../fx/FxLayer';
 import { useInView } from '../fx/hooks';
 import { loadVisits } from '../fx/visitors';
@@ -10,6 +10,12 @@ const Globe = lazy(() => import('../three/Globe'));
 
 /** The room itself lives in three/World.jsx behind the page; this is the DOM laid over it. */
 export function Hero({ thermal, onThermal }) {
+  const [tiltAsk, setTiltAsk] = useState(THREE_D && COARSE && TILT_ASK);
+  const askTilt = () =>
+    DeviceOrientationEvent.requestPermission()
+      .then((r) => r === 'granted' && startTilt())
+      .catch(() => {})
+      .finally(() => setTiltAsk(false));
   return (
     <section id="top" className="hero">
       {!THREE_D && (
@@ -22,6 +28,11 @@ export function Hero({ thermal, onThermal }) {
       {THREE_D && (
         <button className={thermal ? 'hud-toggle nav-font on' : 'hud-toggle nav-font'} onClick={() => onThermal(!thermal)} aria-pressed={thermal}>
           <span aria-hidden="true">⌖</span> Spectral decloak
+        </button>
+      )}
+      {tiltAsk && (
+        <button className="hud-toggle tilt-toggle nav-font" onClick={askTilt}>
+          <span aria-hidden="true">◎</span> Tilt to look
         </button>
       )}
       <p className="hero-kicker nav-font">
