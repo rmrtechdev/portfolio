@@ -17,20 +17,16 @@ export const loadShown = { value: 0, live: false };
 /** iOS gates device orientation behind a permission prompt that needs a tap, so tilt is opt-in there. */
 export const TILT_ASK = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
 
-/** Phone tilt as orbit offsets (radians) for the hero camera, relative to how the phone was held at the first reading. */
-export const tilt = { on: false, yaw: 0, pitch: 0 };
+/**
+ * Raw device orientation (alpha, beta, gamma in degrees) for the hero's AR look-around; World.jsx turns it into a
+ * view direction. Fires 'rmr-tilt' once on, so the extra phone panels can mount.
+ */
+export const tilt = { on: false, e: null };
 export function startTilt() {
   if (tilt.on) return;
   tilt.on = true;
-  let base;
-  const clamp1 = (v) => Math.max(-1, Math.min(1, v));
-  // ponytail: portrait axes only; landscape phones get swapped yaw/pitch.
-  addEventListener('deviceorientation', (e) => {
-    if (e.gamma == null) return;
-    base ??= [e.gamma, e.beta];
-    tilt.yaw = -clamp1((e.gamma - base[0]) / 40) * 0.7;
-    tilt.pitch = clamp1((e.beta - base[1]) / 40) * 0.3;
-  });
+  addEventListener('deviceorientation', (e) => e.alpha != null && (tilt.e = [e.alpha, e.beta, e.gamma]));
+  dispatchEvent(new Event('rmr-tilt'));
 }
 
 /** Where the Jarvis hologram sits on screen (client px), written by its renderer; `possess` flows back from the strands. */

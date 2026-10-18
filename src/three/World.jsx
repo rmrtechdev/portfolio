@@ -51,14 +51,17 @@ const CYAN = '#08fdd8';
 const PINK = '#ff69b4';
 const PANEL_W = 2.6;
 const PANEL_H = PANEL_W / 1.6;
+// Device frame -> camera frame: a phone held upright looks out of its back, not its top edge.
+const DEVICE_TO_CAMERA = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 const CEILING = 6;
 const INTRO_DUR = 1800;
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-function useVideoTexture(src, active) {
+function useVideoTexture(src, active, lazy) {
   const video = useMemo(() => {
     const v = document.createElement('video');
-    Object.assign(v, { src, muted: true, loop: true, playsInline: true, crossOrigin: 'anonymous', preload: 'auto' });
+    // Lazy panels download nothing until they first play, so they add no load time.
+    Object.assign(v, { src, muted: true, loop: true, playsInline: true, crossOrigin: 'anonymous', preload: lazy ? 'none' : 'auto' });
     return v;
   }, [src]);
   const texture = useMemo(() => {
@@ -82,11 +85,19 @@ function useVideoTexture(src, active) {
   return texture;
 }
 
-function Panel({ src, position, index, active, onSelect, register }) {
+const frustum = new THREE.Frustum();
+const viewProj = new THREE.Matrix4();
+const panelSphere = new THREE.Sphere(new THREE.Vector3(), PANEL_W * 0.6);
+
+/** `face` ([pitch, yaw]) turns a panel toward the viewer; `lazy` panels stream their video only once looked at. */
+function Panel({ src, position, index, active, onSelect, register, face, lazy }) {
   const group = useRef();
   const edges = useRef();
   const [hovered, setHovered] = useState(false);
-  const map = useVideoTexture(src, active);
+  // Video only decodes while the panel is on screen, so panels out of view cost nothing.
+  const [seen, setSeen] = useState(!lazy);
+  const seenNow = useRef(seen);
+  const map = useVideoTexture(src, active && seen, lazy);
   const frameEdges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(PANEL_W + 0.14, PANEL_H + 0.14, 0.08)), []);
   const cable = useMemo(() => {
     const top = CEILING - position[1];
@@ -98,10 +109,16 @@ function Panel({ src, position, index, active, onSelect, register }) {
   }, [position]);
   useEffect(() => register(index, group.current), []);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
+    if (active) {
+      frustum.setFromProjectionMatrix(viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+      const v = frustum.intersectsSphere(panelSphere.set(group.current.getWorldPosition(panelSphere.center), PANEL_W * 0.6));
+      if (v !== seenNow.current) setSeen((seenNow.current = v));
+    }
+    group.current.rotation.x = face ? face[0] : 0;
     group.current.rotation.z = Math.sin(t * 0.5 + index) * 0.025;
-    group.current.rotation.y = -position[0] * 0.09 + Math.sin(t * 0.3 + index * 1.7) * 0.06;
+    group.current.rotation.y = (face ? face[1] : -position[0] * 0.09) + Math.sin(t * 0.3 + index * 1.7) * 0.06;
     group.current.position.y = position[1] + Math.sin(t * 0.7 + index) * 0.04;
     edges.current.material.opacity = hovered ? 1 : 0.2 + (0.5 + Math.sin(t * 2) * 0.3) * 0.25;
     edges.current.material.color.set(hovered ? PINK : CYAN);
@@ -109,9 +126,11 @@ function Panel({ src, position, index, active, onSelect, register }) {
 
   return (
     <group ref={group} position={position}>
-      <lineSegments geometry={cable}>
-        <lineBasicMaterial color="#3a3a3a" />
-      </lineSegments>
+      {!face && (
+        <lineSegments geometry={cable}>
+          <lineBasicMaterial color="#3a3a3a" />
+        </lineSegments>
+      )}
       <mesh position={[0, 0, -0.05]}>
         <boxGeometry args={[PANEL_W + 0.12, PANEL_H + 0.12, 0.08]} />
         <meshStandardMaterial color="#151515" metalness={0.6} roughness={0.45} />
@@ -320,10 +339,10 @@ function useStations() {
  */
 function Director({ load, thermal, compact, introPanel, rig, room, stations, stack, entering, onEntered, onStage, onReady }) {
   const { gl, scene, camera, size } = useThree();
-  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0 });
+  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null });
   const intro = useRef(null);
   const look = useMemo(() => new THREE.Vector3(0, 1.1, 0), []);
-  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3() }), []);
+  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3(), dev: new THREE.Vector3(), q: new THREE.Quaternion(), eul: new THREE.Euler() }), []);
 
   const { composer, bokeh, thermalPass, afterPass, controls } = useMemo(() => {
     const composer = new EffectComposer(gl);
@@ -420,19 +439,14 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       look.lerpVectors(fromLook, toLook, k);
       if (t >= 1) {
         s.introDone = true;
-        controls.autoRotate = true;
+        controls.autoRotate = !tilt.on;
         controls.autoRotateSpeed = compact ? 0.15 : 0.35;
       }
     } else if (s.introDone && !s.snap) {
-      // Tilt is applied as a change since last frame, so it adds to the auto-orbit instead of fighting it.
+      // AR mode: the phone aims the view, so the camera holds the spot the intro landed on instead of orbiting.
       if (tilt.on) {
-        const dy = (tilt.yaw - s.tiltYaw) * 0.08;
-        const dp = (tilt.pitch - s.tiltPitch) * 0.08;
-        s.tiltYaw += dy;
-        s.tiltPitch += dp;
-        const off = camera.position.clone().sub(controls.target).applyAxisAngle(THREE.Object3D.DEFAULT_UP, dy);
-        off.applyAxisAngle(new THREE.Vector3().crossVectors(THREE.Object3D.DEFAULT_UP, off).normalize(), dp);
-        camera.position.copy(controls.target).add(off);
+        controls.autoRotate = false;
+        camera.position.lerp(intro.current.to, 0.04);
       }
       controls.enabled = true;
       controls.update();
@@ -487,6 +501,23 @@ function Director({ load, thermal, compact, introPanel, rig, room, stations, sta
       camera.position.copy(tmp.pos);
       camera.lookAt(tmp.tgt);
     } else camera.lookAt(look);
+
+    // AR look-around: the device's orientation, read the way three's DeviceOrientationControls does (stable with
+    // the phone upright, where raw alpha is not), turns the view 1:1 from where the camera stands, relative to how
+    // the phone was held at the first reading.
+    if (tilt.on && tilt.e && !flying) {
+      const [a, b, g] = tilt.e.map(THREE.MathUtils.degToRad);
+      tmp.q.setFromEuler(tmp.eul.set(b, a, -g, 'YXZ')).multiply(DEVICE_TO_CAMERA);
+      tmp.dev.set(0, 0, -1).applyQuaternion(tmp.q);
+      const heading = Math.atan2(-tmp.dev.x, -tmp.dev.z);
+      const pitch = Math.asin(THREE.MathUtils.clamp(tmp.dev.y, -1, 1));
+      s.tiltBase ??= [heading, pitch];
+      const yaw = THREE.MathUtils.euclideanModulo(heading - s.tiltBase[0] + Math.PI, 2 * Math.PI) - Math.PI;
+      s.tiltYaw += (THREE.MathUtils.clamp(yaw, -1.4, 1.4) - s.tiltYaw) * 0.15;
+      s.tiltPitch += (THREE.MathUtils.clamp(pitch - s.tiltBase[1], -0.8, 0.8) - s.tiltPitch) * 0.15;
+      camera.rotateOnWorldAxis(THREE.Object3D.DEFAULT_UP, s.tiltYaw);
+      camera.rotateX(s.tiltPitch);
+    }
 
     // Pin the globe where the page layout expects it while it is framed, easing in and out of the flight.
     const pin = smooth(0.85, 1, p) * (1 - smooth(0, 0.35, q));
@@ -629,6 +660,22 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
     : [[-3.9, 1.7, -1.6], [-1.5, 0.4, 0.3], [1.5, 1.7, -0.6], [3.6, 0.2, -1.8], [0.1, 3.0, -2.8]];
   // Phones: back off until the compact column (about 4.6 units wide) fits the portrait width, plus its depth.
   const camZ = compact ? Math.max(8.5, 2.3 / (Math.tan(THREE.MathUtils.degToRad(55 / 2)) * (innerWidth / innerHeight)) + 1) : 9;
+  // With AR look-around on, phones also get the rest of the reel wrapped around the viewer (left, right, overhead),
+  // 9 units out from where the camera stands and turned to face it. Lazy, so they add nothing to load time.
+  const [ar, setAr] = useState(tilt.on);
+  useEffect(() => {
+    const on = () => setAr(true);
+    if (tilt.on) on();
+    addEventListener('rmr-tilt', on);
+    return () => removeEventListener('rmr-tilt', on);
+  }, []);
+  const around =
+    compact && ar
+      ? [[-0.95, 0.1], [0.95, 0], [0.25, 0.7]].map(([az, el]) => ({
+          pos: [9 * Math.sin(az) * Math.cos(el), 1.4 + 9 * Math.sin(el), camZ - 9 * Math.cos(az) * Math.cos(el)],
+          face: [el, -az],
+        }))
+      : [];
   const rig = useRef();
   const room = useRef();
   const introPanel = useRef(null);
@@ -666,6 +713,10 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
               <Panel key={REEL[i].title} src={REEL[i].video} position={pos} index={i} active={stage === 'hero'} onSelect={select} register={register} />
             ))}
           </group>
+          {around.map(({ pos, face }, k) => {
+            const i = layout.length + k;
+            return <Panel key={REEL[i].title} src={REEL[i].video} position={pos} face={face} lazy index={i} active={stage === 'hero'} onSelect={select} register={register} />;
+          })}
         </group>
         <group position={GLOBE}>
           <Earth home={HOME} active={stage === 'globe'} spin visitors={visitors} homeLabel={homeLabel} tip={tip} />
