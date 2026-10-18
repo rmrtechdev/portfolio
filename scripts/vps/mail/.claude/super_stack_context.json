@@ -1,0 +1,13 @@
+{
+  "format": "toon/compact",
+  "sections": [
+    {
+      "t": "architecture",
+      "n": "architecture",
+      "c": {
+        "architecture": null,
+        "index_sections": []
+      }
+    }
+  ]
+}

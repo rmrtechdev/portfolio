@@ -1,0 +1,54 @@
+# mail.rmrtech.dev on the VPS, at /srv/mail. Publishes mail ports only; 80/443 belong to the client's nginx.
+services:
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:16.0.1
+    container_name: mailserver
+    hostname: mail.rmrtech.dev
+    restart: unless-stopped
+    stop_grace_period: 1m
+    ports:
+      - "25:25"     # inbound MTA-to-MTA (STARTTLS)
+      - "465:465"   # submission, implicit TLS
+      - "587:587"   # submission, STARTTLS
+      - "993:993"   # IMAP, implicit TLS
+    volumes:
+      - ./data/mail-data/:/var/mail/
+      - ./data/mail-state/:/var/mail-state/
+      - ./data/mail-logs/:/var/log/mail/
+      - ./data/config/:/tmp/docker-mailserver/
+      - ./certs/:/etc/letsencrypt/:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - OVERRIDE_HOSTNAME=mail.rmrtech.dev
+      - POSTMASTER_ADDRESS=postmaster@rmrtech.dev
+      - SSL_TYPE=letsencrypt
+      - TLS_LEVEL=modern
+      # Rspamd does spam, DKIM signing, SPF and DMARC; the older per-feature daemons stay off.
+      - ENABLE_RSPAMD=1
+      - ENABLE_OPENDKIM=0
+      - ENABLE_OPENDMARC=0
+      - ENABLE_POLICYD_SPF=0
+      - ENABLE_AMAVIS=0
+      - ENABLE_SPAMASSASSIN=0
+      - RSPAMD_GREYLISTING=1
+      - MOVE_SPAM_TO_JUNK=1
+      # ClamAV needs ~1.5 GB RAM and the disk is 83% full; Rspamd still rejects known-bad attachments.
+      - ENABLE_CLAMAV=0
+      - ENABLE_FAIL2BAN=1
+      - ENABLE_POSTGREY=0
+      - POSTSCREEN_ACTION=enforce
+      # A logged-in sender may only send as addresses they own.
+      - SPOOF_PROTECTION=1
+      # No relay trust for other containers on the host (the client stacks share it).
+      - PERMIT_DOCKER=none
+      - ENABLE_POP3=0
+      - ENABLE_IMAP=1
+      - ENABLE_MANAGESIEVE=0
+      - ENABLE_UPDATE_CHECK=0
+      - LOG_LEVEL=info
+    cap_add:
+      - NET_ADMIN   # Fail2Ban bans via nftables
+    healthcheck:
+      test: "ss --listening --tcp | grep -P 'LISTEN.+:smtp' || exit 1"
+      timeout: 3s
+      retries: 0
