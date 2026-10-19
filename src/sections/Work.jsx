@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DEMOS, PROJECTS, SERVICES } from '../data';
 import { REDUCED, pad } from '../env';
 import { GlitchBox } from '../fx/FxLayer';
-import { Chips, Head } from './Profile';
+import { AR_SIDE, Chips, Head } from './Profile';
 
 export function Services() {
   const cards = useRef(null);
@@ -25,10 +25,13 @@ export function Services() {
           <p className="svc-meta nav-font">WebGL · three.js · procedural · post FX — scroll to change the look, drag to rotate</p>
         </div>
         <div className="svc-grid" ref={cards}>
-          {SERVICES.map((s) => (
+          {[0, 3].map((g) => (
+            <div key={g} className="ar-moment ar-wrap">
+            <div className="ar-stage ar-wrap">
+          {SERVICES.slice(g, g + 3).map((s, k) => (
             <article
               key={s.title}
-              className={s.lit ? 'sa-card lit' : 'sa-card'}
+              className={['sa-card', s.lit && 'lit', AR_SIDE[k]].filter(Boolean).join(' ')}
               role="button"
               tabIndex={0}
               aria-haspopup="dialog"
@@ -43,6 +46,9 @@ export function Services() {
               </div>
               <Chips items={s.chips} />
             </article>
+          ))}
+            </div>
+            </div>
           ))}
         </div>
       </div>
@@ -86,7 +92,8 @@ export function Work() {
       <Head text="Latest done" />
       <div className="pj-grid">
         {PROJECTS.map((p, i) => (
-          <article key={p.title} className="pj-card" id={`p-${i + 1}`}>
+          <article key={p.title} className="pj-card ar-moment" id={`p-${i + 1}`}>
+            <div className="ar-stage ar-wrap">
             <p className="pj-k nav-font">
               P/{pad(i + 1)} — {p.status}
             </p>
@@ -98,14 +105,19 @@ export function Work() {
               <img className="pj-split c" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
             </div>
             <p className="pj-tag">{p.tagline}</p>
+            <div className="ar-side r ar-wrap">
             <p className="pj-done-h nav-font">Key deliverables</p>
             <ul className="pj-done">
               {p.scope.map((s) => <li key={s}>{s}</li>)}
             </ul>
+            </div>
+            <div className="ar-side l ar-wrap">
             <Chips items={p.stack.map((s, k) => [s, k % 3 === 1])} />
             <div className="pj-links nav-font">
               {p.href && <a href={p.href} target="_blank" rel="noreferrer">Live site ↗</a>}
               {!p.href && <a href="#contact">Ask for a code walkthrough →</a>}
+            </div>
+            </div>
             </div>
           </article>
         ))}
@@ -116,10 +128,16 @@ export function Work() {
 
 export function Archive() {
   return (
-    <section className="section archive" aria-label="Archive">
-      <p className="archive-h nav-font">Archive / demo reel</p>
-      <div className="demos">
-        {DEMOS.map((d, i) => <Demo key={d.id} d={d} i={i} />)}
+    <section className="section archive ar-moment" aria-label="Archive">
+      <div className="ar-stage ar-wrap">
+        <p className="archive-h nav-font">Archive / demo reel</p>
+        <div className="demos">
+          {[0, 3, 6].map((g, k) => (
+            <div key={g} className={['ar-wrap', AR_SIDE[k]].filter(Boolean).join(' ')}>
+              {DEMOS.slice(g, g + 3).map((d, j) => <Demo key={d.id} d={d} i={g + j} />)}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

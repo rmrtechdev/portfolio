@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { DISCIPLINES, GIANT_LEAD, HOME, MARQUEE, REEL } from '../data';
-import { COARSE, REDUCED, THREE_D, TILT_ASK, WEBGL, startTilt } from '../env';
+import { COARSE, REDUCED, THREE_D, TILT_ASK, WEBGL, ar, setAR, startTilt } from '../env';
 import { Trail } from '../fx/FxLayer';
 import { useInView } from '../fx/hooks';
 import { loadVisits } from '../fx/visitors';
@@ -12,17 +12,19 @@ const Globe = lazy(() => import('../three/Globe'));
 export function Hero({ thermal, onThermal }) {
   const [tiltAsk, setTiltAsk] = useState(THREE_D && COARSE && TILT_ASK);
   useEffect(() => {
-    const hide = () => setTiltAsk(false);
-    addEventListener('rmr-tilt', hide);
-    return () => removeEventListener('rmr-tilt', hide);
+    const hide = () => setTiltAsk(!ar.on);
+    addEventListener('rmr-ar', hide);
+    return () => removeEventListener('rmr-ar', hide);
   }, []);
+  // The same full AR view as the top bar's chip, kept until the chip turns it off.
   const askTilt = () =>
     DeviceOrientationEvent.requestPermission()
-      .then((r) => r === 'granted' && startTilt())
+      .then((r) => r === 'granted' && (startTilt(), setAR(true)))
       .catch(() => {})
       .finally(() => setTiltAsk(false));
   return (
-    <section id="top" className="hero">
+    <section id="top" className="hero ar-moment">
+      <div className="ar-stage ar-wrap">
       {!THREE_D && (
         <div className="hero-fallback">
           {REEL.slice(0, 3).map((p) => (
@@ -58,6 +60,7 @@ export function Hero({ thermal, onThermal }) {
         <span className="hero-ring-core" aria-hidden="true">↓</span>
       </a>
       <h1 className="sr-only">R.M.ROMAN — full-stack engineer</h1>
+      </div>
     </section>
   );
 }
@@ -90,7 +93,8 @@ export function Specializing({ visitors, onVisitors }) {
   }, [inView]);
 
   return (
-    <section id="about" className="spec" ref={ref}>
+    <section id="about" className="spec ar-moment" ref={ref}>
+      <div className="ar-stage ar-wrap">
       <div className="giant rise">
         <p className="giant-line" aria-label={`${GIANT_LEAD} ${DISCIPLINES.join(', ')}`}>
           <span className="giant-lead" aria-hidden="true">{GIANT_LEAD}</span>
@@ -119,6 +123,7 @@ export function Specializing({ visitors, onVisitors }) {
           )}
         </div>
       )}
+      </div>
     </section>
   );
 }

@@ -30,6 +30,8 @@
 }
 html {
   scroll-behavior: smooth;
+  /* Sitewide type scale: every rem size follows this. */
+  font-size: 112.5%;
   scroll-padding-top: 90px;
   background: var(--bg);
   /* The native bar is replaced by .sprog; scrolling itself is untouched. */
@@ -105,7 +107,7 @@ html::-webkit-scrollbar {
 body {
   background: transparent;
   color: var(--fg);
-  font: 500 15px/1.55 var(--body);
+  font: 700 17px/1.55 var(--body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -153,7 +155,7 @@ button {
 .nav-font {
   font-family: var(--anon);
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -243,7 +245,8 @@ button {
 }
 
 /* Bottom melt glow */
-.rgb-blur {
+/* #root's own child, so it has to outrank `#root > *` below or it swallows taps meant for the world canvas. */
+#root > .rgb-blur {
   position: fixed;
   left: 0;
   right: 0;
@@ -291,7 +294,7 @@ button {
   left: 50%;
   bottom: 5vh;
   z-index: 720;
-  font: 700 clamp(2.5rem, 6vw, 5rem) / 1 var(--display);
+  font: 900 clamp(2.5rem, 6.8vw, 5rem) / 1 var(--display);
   letter-spacing: -0.04em;
   color: var(--pink);
   pointer-events: none;
@@ -345,7 +348,7 @@ button {
 }
 .brand,
 .tagline {
-  font: 700 clamp(1.3rem, 2.4vw, 2.2rem) / 1.1 var(--display);
+  font: 900 clamp(1.3rem, 2.7vw, 2.2rem) / 1.1 var(--display);
   letter-spacing: -0.03em;
   white-space: nowrap;
 }
@@ -356,7 +359,7 @@ button {
   min-width: 5ch;
 }
 .tagline {
-  font-weight: 500;
+  font-weight: 700;
   color: #7d828c;
   padding: 0 0.12em;
 }
@@ -415,18 +418,24 @@ button {
   color: var(--cyan);
   font-size: 0.75rem;
 }
-.chip:hover,
+/* Hover only where there is a real pointer: iOS keeps :hover after a tap, so the chip looked lit whether AR
+   was on or off. */
 .chip.on {
   background: var(--cyan);
   color: #000;
 }
-.chip:hover .chip-icon,
 .chip.on .chip-icon {
   color: #000;
 }
-.chip:hover {
-  background: var(--pink);
-  border-color: var(--pink);
+@media (hover: hover) {
+  .chip:hover {
+    background: var(--pink);
+    border-color: var(--pink);
+    color: #000;
+  }
+  .chip:hover .chip-icon {
+    color: #000;
+  }
 }
 
 /* Side rail */
@@ -438,7 +447,7 @@ button {
   z-index: 40;
   display: grid;
   text-align: right;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 18px;
   letter-spacing: 0.06em;
 }
@@ -497,6 +506,8 @@ button {
   align-items: center;
   padding: 6px 12px;
   font-size: 0.82rem;
+  /* Centred from left: 50%, so on a phone it only has half the width before it would wrap. */
+  white-space: nowrap;
   color: var(--mid);
   background: #000;
   border: 0;
@@ -505,20 +516,24 @@ button {
 .hud-toggle span {
   color: var(--cyan);
 }
-.hud-toggle:hover,
 .hud-toggle.on {
   background: var(--cyan);
   color: #000;
 }
-.hud-toggle:hover span,
 .hud-toggle.on span {
   color: #000;
 }
-.hud-toggle:hover {
-  background: var(--pink);
+@media (hover: hover) {
+  .hud-toggle:hover {
+    background: var(--pink);
+    color: #000;
+  }
+  .hud-toggle:hover span {
+    color: #000;
+  }
 }
 .tilt-toggle {
-  top: calc(45% + 40px);
+  top: calc(45% + 3em);
 }
 .hero-kicker {
   position: absolute;
@@ -566,7 +581,7 @@ button {
 }
 .hero-ring-text {
   fill: currentColor;
-  font: 700 8px var(--anon);
+  font: 900 10px var(--anon);
   text-transform: uppercase;
 }
 .hero-ring-text,
@@ -592,7 +607,7 @@ button {
   border: 1px solid currentColor;
   border-radius: 50%;
   background: #000;
-  font: 400 1.1rem var(--kode);
+  font: 600 1.1rem var(--kode);
   transition: background 0.2s, color 0.2s;
 }
 .hero-ring:hover {
@@ -625,7 +640,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   min-height: 1.4em;
-  font: 700 clamp(1.5rem, 2.5vw, 3.2rem) / 1.4 var(--display);
+  font: 900 clamp(1.5rem, 2.8vw, 3.2rem) / 1.4 var(--display);
   letter-spacing: -0.04em;
   white-space: nowrap;
   color: #f4f5f7;
@@ -690,7 +705,7 @@ button {
 }
 .globe-home b {
   display: block;
-  font: 600 0.95rem / 1.2 var(--display);
+  font: 800 0.95rem / 1.2 var(--display);
   letter-spacing: -0.01em;
   text-transform: none;
   color: #fff;
@@ -728,7 +743,7 @@ button {
   padding: 12px 14px;
   background: #000;
   border: 1px solid var(--mid);
-  font: 600 0.9rem / 1.55 var(--body);
+  font: 800 0.9rem / 1.55 var(--body);
   color: var(--copy);
 }
 .gbox.in {
@@ -784,7 +799,7 @@ button {
 .moving-track {
   display: inline-flex;
   white-space: nowrap;
-  font: 700 clamp(5rem, 17vw, 16rem) / 0.9 var(--display);
+  font: 700 clamp(3.25rem, 11vw, 10rem) / 0.9 var(--display);
   text-transform: uppercase;
   color: #4a4a4a;
   filter: url(#threshStrong);
@@ -793,7 +808,7 @@ button {
 /* Sentence-length marquee: more of the line on screen at once, with the lighter melt so smaller glyphs
    keep their counters open. */
 .moving.small .moving-track {
-  font-size: clamp(2.2rem, 6vw, 5.5rem);
+  font-size: clamp(1.2rem, 3.2vw, 2.9rem);
   color: var(--mid);
   filter: url(#thresh);
 }
@@ -822,7 +837,7 @@ button {
 }
 .snake-hud b {
   color: #fff;
-  font-weight: 400;
+  font-weight: 600;
 }
 .snake-rule {
   flex: 1;
@@ -978,7 +993,7 @@ body {
   padding: clamp(60px, 8vw, 110px) calc(var(--rail) + var(--gutter)) clamp(40px, 6vw, 80px) var(--gutter);
 }
 .head {
-  font: 700 clamp(3rem, 8vw, 7.6rem) / 1.05 var(--display);
+  font: 900 clamp(3rem, 9vw, 7.6rem) / 1.05 var(--display);
   letter-spacing: -0.045em;
   text-align: right;
   margin-bottom: clamp(24px, 3.4vw, 48px);
@@ -1007,7 +1022,7 @@ body {
 }
 .chips li {
   padding: 3px 6px;
-  font: 400 0.7rem var(--kode);
+  font: 600 0.7rem var(--kode);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #fff;
@@ -1054,13 +1069,13 @@ body {
   font-size: 0.72rem;
 }
 .pf-name {
-  font: 600 clamp(1.15rem, 1.7vw, 1.45rem) / 1.2 var(--display);
+  font: 800 clamp(1.15rem, 1.9vw, 1.45rem) / 1.2 var(--display);
   letter-spacing: -0.02em;
   color: #fff;
 }
 .pf-copy {
   color: var(--copy);
-  font: 600 0.95rem / 1.65 var(--body);
+  font: 800 0.95rem / 1.65 var(--body);
 }
 .pf-stage {
   position: relative;
@@ -1178,13 +1193,13 @@ body {
   font-size: 0.72rem;
 }
 .sa-title {
-  font: 600 clamp(1.15rem, 1.7vw, 1.45rem) / 1.2 var(--display);
+  font: 800 clamp(1.15rem, 1.9vw, 1.45rem) / 1.2 var(--display);
   letter-spacing: -0.02em;
   color: #fff;
 }
 .sa-copy {
   color: var(--copy);
-  font: 600 0.95rem / 1.65 var(--body);
+  font: 800 0.95rem / 1.65 var(--body);
 }
 .sa-art {
   height: clamp(170px, 18vw, 240px);
@@ -1213,13 +1228,13 @@ body {
   font-size: 0.72rem;
 }
 .pj-title {
-  font: 600 clamp(1.3rem, 2vw, 1.75rem) / 1.2 var(--display);
+  font: 800 clamp(1.3rem, 2.2vw, 1.75rem) / 1.2 var(--display);
   letter-spacing: -0.02em;
   color: #fff;
 }
 .pj-copy {
   color: var(--copy);
-  font: 700 0.8rem / 1.8 var(--anon);
+  font: 900 0.8rem / 1.8 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   max-width: 56ch;
@@ -1278,7 +1293,7 @@ body {
 }
 .pj-tag {
   color: var(--pink);
-  font: 700 0.8rem / 1.6 var(--anon);
+  font: 900 0.8rem / 1.6 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1296,7 +1311,7 @@ body {
   gap: 10px;
   align-items: baseline;
   color: var(--copy);
-  font: 700 0.78rem / 1.7 var(--anon);
+  font: 900 0.78rem / 1.7 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -1443,7 +1458,7 @@ body {
 }
 .ik-prompt {
   margin: 14px 0 6px;
-  font: 600 1.35rem / 1.3 var(--display);
+  font: 800 1.35rem / 1.3 var(--display);
   letter-spacing: -0.02em;
   text-transform: none;
   color: #f0f1f3;
@@ -1455,7 +1470,7 @@ body {
 }
 .ik-sub {
   color: var(--copy);
-  font: 500 0.9rem / 1.5 var(--body);
+  font: 700 0.9rem / 1.5 var(--body);
   text-transform: none;
   letter-spacing: 0;
   margin-bottom: 14px;
@@ -1468,7 +1483,7 @@ body {
 }
 .ik-chip {
   padding: 7px 11px;
-  font: 700 0.72rem var(--anon);
+  font: 900 0.72rem var(--anon);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--grey);
@@ -1497,7 +1512,7 @@ body {
 }
 .ik-fields input,
 .ik-fields textarea {
-  font: 500 0.9rem var(--body);
+  font: 700 0.9rem var(--body);
   color: #e0e0e0;
   background: #111;
   border: 1px solid transparent;
@@ -1565,7 +1580,7 @@ body {
 .endcap {
   display: inline-block;
   padding: 2px 10px 0;
-  font: 700 clamp(2.4rem, 6vw, 5.8rem) / 1.1 var(--display);
+  font: 900 clamp(2.4rem, 6.8vw, 5.8rem) / 1.1 var(--display);
   letter-spacing: -0.045em;
   text-decoration: none;
   color: #f0f1f3;
@@ -1706,7 +1721,7 @@ body {
     align-items: stretch;
   }
   .endcap {
-    font-size: 8.4vw;
+    font-size: 9.5vw;
   }
   .footer {
     flex-direction: column;
@@ -1718,6 +1733,27 @@ body {
   }
 }
 
+/* Phones on their side: one screen of About leaves the globe ~200px under the line and the marquee arriving over
+   it straight away, so About gets more scroll, the line clears the top bar and stays on one line, and the globe's
+   box is the rest of the first screen. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html:not(.ar) .spec {
+    --spec-line: calc(1.4 * 1.5rem);
+    min-height: 170svh;
+    padding-top: 56px;
+  }
+  html:not(.ar) .spec .giant-line {
+    min-height: 1.4em;
+    white-space: nowrap;
+  }
+  html:not(.ar) .spec-globe {
+    inset: calc(56px + var(--spec-line) + 48px) 0 auto;
+    height: calc(100svh - 56px - var(--spec-line) - 48px);
+  }
+  html.ar .spec > .ar-stage {
+    padding-top: 56px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -1738,4 +1774,120 @@ body {
     clip-path: none;
     transition: none;
   }
+}
+
+/* AR view (setAR in env.js): every .ar-moment rises in, holds its .ar-stage for one screen, then rises out.
+   three/World.jsx turns the stages with the look-around and moves the room in step, so second-tier content
+   (.ar-side) waits just off-screen, a sliver showing, until the viewer turns to it.
+   Outside AR the wrappers are display: contents, leaving the regular layout untouched. */
+.ar-wrap {
+  display: contents;
+}
+/* Side panels and turned stages reach past the screen; clip (unlike hidden) leaves the sticky stages pinned to
+   the page, and stops phones widening the layout viewport to fit them. */
+html.ar main {
+  overflow-x: clip;
+}
+html.ar {
+  --ar-side-w: min(360px, calc(100vw - 2 * var(--gutter)));
+  --ar-peek: 24px;
+}
+/* Even side padding, so the stages centre on the screen the look-around turns about. */
+html.ar .section {
+  padding-inline: var(--gutter);
+}
+html.ar .ar-moment {
+  display: block;
+  position: relative;
+  height: auto;
+  min-height: 0;
+}
+/* The hold: a sticky element only travels within its parent's content box, so padding would not count. */
+html.ar .ar-moment::after {
+  content: '';
+  display: block;
+  height: 100svh;
+}
+/* hidden would make these their own scroll containers, which pins the sticky stage to them instead of the page. */
+html.ar .hero,
+html.ar .spec {
+  overflow: clip;
+}
+html.ar .ar-stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
+  width: min(760px, 100%);
+  margin-inline: auto;
+}
+html.ar .hero > .ar-stage,
+html.ar .spec > .ar-stage {
+  display: block;
+  width: auto;
+  height: 100svh;
+  /* The section's own top padding sits outside the sticky stage, which would put the line under the top bar. */
+  padding-top: 10vh;
+}
+html.ar .ar-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: absolute;
+  top: 50%;
+  width: var(--ar-side-w);
+  translate: 0 -50%;
+}
+html.ar .ar-side.r {
+  left: calc(50% + 50vw - var(--ar-peek));
+}
+html.ar .ar-side.l {
+  right: calc(50% + 50vw - var(--ar-peek));
+}
+html.ar .team,
+html.ar .pj-grid,
+html.ar .svc-pin,
+html.ar .svc-grid {
+  display: block;
+  padding: 0;
+}
+/* The workstation becomes the backdrop behind the cards, as on phones (three/World.jsx). */
+html.ar .svc-scene {
+  display: none;
+}
+html.ar .pf-card {
+  display: flex;
+  flex-direction: column;
+}
+html.ar .pf-card,
+html.ar .sa-card,
+html.ar .pj-card .ar-side,
+html.ar .demos > .ar-side,
+html.ar .intake {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.62);
+}
+html.ar .pj-card {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+/* Keeps a card's front within one screen. */
+html.ar .pj-card .pj-media {
+  width: min(100%, 60svh);
+}
+html.ar .contact-ui {
+  padding: 0;
+  align-items: center;
+}
+/* The hologram pins full-screen behind Archive and Contact, as on phones. */
+html.ar .jarvis-zone > .car-band {
+  position: sticky;
+  inset: auto;
+  top: 0;
+  height: 100svh;
+  margin-bottom: -100svh;
 }

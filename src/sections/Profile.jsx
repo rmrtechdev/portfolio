@@ -22,6 +22,9 @@ export function Chips({ items }) {
   );
 }
 
+/** In AR view (see .ar-moment in styles.css) the lead item holds the front and the next two wait to either side. */
+export const AR_SIDE = [undefined, 'ar-side r', 'ar-side l'];
+
 export function Team() {
   const section = useRef(null);
   const stages = useRef([]);
@@ -41,11 +44,12 @@ export function Team() {
   }, []);
 
   return (
-    <section id="team" className="section" ref={section}>
+    <section id="team" className="section ar-moment" ref={section}>
+      <div className="ar-stage ar-wrap">
       <Head text="Profile" />
       <div className="team">
         {TEAM.map((m, i) => (
-          <article key={m.name} className={m.vacant ? 'pf-card vacant' : 'pf-card'}>
+          <article key={m.name} className={['pf-card', m.vacant && 'vacant', AR_SIDE[i]].filter(Boolean).join(' ')}>
             <p className="pf-code nav-font">{m.code}</p>
             <h3 className="pf-name rise">{m.name}</h3>
             <p className="pf-copy">{m.copy}</p>
@@ -73,6 +77,7 @@ export function Team() {
             <Chips items={m.tags} />
           </article>
         ))}
+      </div>
       </div>
     </section>
   );

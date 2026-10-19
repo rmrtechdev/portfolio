@@ -148,12 +148,14 @@ export function JarvisZone({ children }) {
 export default function Contact() {
   const email = useRef(null);
   return (
-    <section id="contact" className="contact-band">
+    <section id="contact" className="contact-band ar-moment">
+      <div className="ar-stage ar-wrap">
       <div className="contact-ui">
         <Intake />
         <a className="endcap" href="#contact" onClick={openMail} onPointerEnter={() => !COARSE && scramble(email.current)}>
           <span ref={email}>Write to me ↗</span>
         </a>
+      </div>
       </div>
     </section>
   );

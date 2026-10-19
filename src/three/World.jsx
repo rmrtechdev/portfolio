@@ -57,7 +57,17 @@ const CEILING = 6;
 const INTRO_DUR = 1800;
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-function useVideoTexture(src, active, lazy) {
+// iOS refuses play() outside a tap in Low Power Mode (and whenever autoplay is off); a refused video retries on
+// the next touch, after which iOS lets that element play and pause freely.
+const stalled = new Set();
+const unstall = () => stalled.forEach((v) => v.play().then(() => stalled.delete(v), () => {}));
+addEventListener('touchend', unstall, { capture: true, passive: true });
+addEventListener('click', unstall, true);
+
+const posters = new THREE.TextureLoader();
+
+/** The video as a texture, showing `poster` until the video has a frame of its own. */
+function useVideoTexture(src, poster, active, lazy) {
   const video = useMemo(() => {
     const v = document.createElement('video');
     // Lazy panels download nothing until they first play, so they add no load time.
@@ -69,20 +79,33 @@ function useVideoTexture(src, active, lazy) {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, [video]);
+  const still = useMemo(() => {
+    const t = posters.load(poster);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, [poster]);
+  const [framed, setFramed] = useState(false);
   useEffect(() => {
-    if (active) video.play().catch(() => {});
-    else video.pause();
+    const on = () => setFramed(true);
+    video.addEventListener('loadeddata', on);
+    return () => video.removeEventListener('loadeddata', on);
+  }, [video]);
+  useEffect(() => {
+    if (active) video.play().catch(() => stalled.add(video));
+    else stalled.delete(video), video.pause();
   }, [active, video]);
   useEffect(
     () => () => {
+      stalled.delete(video);
       video.pause();
       video.removeAttribute('src');
       video.load();
       texture.dispose();
+      still.dispose();
     },
-    [video, texture]
+    [video, texture, still]
   );
-  return texture;
+  return framed ? texture : still;
 }
 
 const frustum = new THREE.Frustum();
@@ -90,14 +113,14 @@ const viewProj = new THREE.Matrix4();
 const panelSphere = new THREE.Sphere(new THREE.Vector3(), PANEL_W * 0.6);
 
 /** `face` ([pitch, yaw]) turns a panel toward the viewer; `lazy` panels stream their video only once looked at. */
-function Panel({ src, position, index, active, onSelect, register, face, lazy }) {
+function Panel({ src, poster, position, index, active, onSelect, register, face, lazy }) {
   const group = useRef();
   const edges = useRef();
   const [hovered, setHovered] = useState(false);
   // Video only decodes while the panel is on screen, so panels out of view cost nothing.
   const [seen, setSeen] = useState(!lazy);
   const seenNow = useRef(seen);
-  const map = useVideoTexture(src, active && seen, lazy);
+  const map = useVideoTexture(src, poster, active && seen, lazy);
   const frameEdges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(PANEL_W + 0.14, PANEL_H + 0.14, 0.08)), []);
   const cable = useMemo(() => {
     const top = CEILING - position[1];
@@ -343,7 +366,7 @@ function useStations() {
  */
 function Director({ load, thermal, compact, introPanel, rig, room, globe, stations, stack, entering, onEntered, onStage, onReady }) {
   const { gl, scene, camera, size } = useThree();
-  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null, msY: 0, lkYaw: 0, lkPitch: 0, arK: 0 });
+  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null, msY: 0, lkYaw: 0, lkPitch: 0, arK: 0, wasAR: false, wasTilt: false, swapAt: -1e9, swapPos: null, swapQuat: null });
   const intro = useRef(null);
   const look = useMemo(() => new THREE.Vector3(0, 1.1, 0), []);
   const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3(), dev: new THREE.Vector3(), q: new THREE.Quaternion(), eul: new THREE.Euler(), base: new THREE.Quaternion(), m4: new THREE.Matrix4(), gpos: new THREE.Vector3() }), []);
@@ -401,6 +424,7 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     const onMove = (e) => {
       state.current.msX = (e.clientX / innerWidth - 0.5) * 2;
       state.current.msY = (e.clientY / innerHeight - 0.5) * 2;
+      state.current.mxy = [e.clientX, e.clientY];
     };
     addEventListener('pointermove', onMove, { passive: true });
     return () => {
@@ -417,6 +441,31 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     const AR = ar.on;
     const { floor, floors, grid, dive, shell, thread } = stations;
     stepStrands(delta);
+
+    // Toggling AR or tilt mid-page swaps the camera between the hero spot and the look-around; ease from the last pose instead of cutting.
+    if (!tilt.on) (s.tiltBase = null), (s.tiltYaw = s.tiltPitch = 0);
+    if (AR !== s.wasAR || tilt.on !== s.wasTilt) {
+      s.wasAR = AR;
+      s.wasTilt = tilt.on;
+      s.swapAt = now;
+      s.swapPos = camera.position.clone();
+      s.swapQuat = camera.quaternion.clone();
+    }
+
+    // AR moments (styles.css): each holds the screen for a scroll of H. Only the scroll between holds is elevation,
+    // which the room and the strands follow, so they hold with the content and rise with it.
+    let held = 0;
+    s.sides = false;
+    if (AR)
+      for (const m of document.querySelectorAll('.ar-moment')) {
+        const r = m.getBoundingClientRect();
+        m.arStage ??= m.querySelector('.ar-stage');
+        held += THREE.MathUtils.clamp(-r.top, 0, m.offsetHeight - (m.arStage?.offsetHeight ?? H));
+        if (r.top <= H / 2 && r.bottom >= H / 2) s.sides ||= (m.arSides ??= !!m.querySelector('.ar-side'));
+      }
+    s.elev = AR ? Math.max(0, scrollY - held) : 0;
+    camera.position.y += s.drop ?? 0;
+    s.drop = 0;
 
     // While the flight owns the camera the orbit is parked; put its pose back before the orbit runs.
     if (s.snap) camera.position.copy(s.snap);
@@ -459,6 +508,13 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
       controls.enabled = !AR;
       controls.update();
       look.copy(controls.target);
+      if (AR) {
+        // The room drops past at the speed the page scrolls at the hero's depth, so the panels leave with the hero.
+        const d = intro.current.to.distanceTo(intro.current.toLook);
+        s.drop = (s.elev * 2 * d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / H;
+        camera.position.y -= s.drop;
+        look.y -= s.drop;
+      }
     }
 
     // Scroll -> flight. p: hero to globe; q: past the globe; travel: down the river after About.
@@ -523,21 +579,51 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
       const pitch = Math.asin(THREE.MathUtils.clamp(tmp.dev.y, -1, 1));
       s.tiltBase ??= [heading, pitch];
       const yaw = THREE.MathUtils.euclideanModulo(heading - s.tiltBase[0] + Math.PI, 2 * Math.PI) - Math.PI;
+      // A portrait screen is narrow, so a small turn loses a moment that has nothing to the sides (the globe, a
+      // single card). There, straight ahead slowly follows the phone and the content settles back in front.
+      if (AR && !s.sides && s.elev > H / 2) s.tiltBase[0] += yaw * (1 - Math.exp(-Math.min(delta, 0.1) * 0.8));
       s.tiltYaw += (THREE.MathUtils.clamp(yaw, -1.4, 1.4) - s.tiltYaw) * 0.15;
       s.tiltPitch += (THREE.MathUtils.clamp(pitch - s.tiltBase[1], -0.8, 0.8) - s.tiltPitch) * 0.15;
       camera.rotateOnWorldAxis(THREE.Object3D.DEFAULT_UP, s.tiltYaw);
       camera.rotateX(s.tiltPitch);
     } else if (AR && !COARSE) {
-      s.lkYaw += (-s.msX * 0.45 - s.lkYaw) * 0.1;
-      s.lkPitch += (-s.msY * 0.2 - s.lkPitch) * 0.1;
+      // Reaches the side content where a moment has some; elsewhere a smaller swing keeps the room in view. Once
+      // the pointer is on a side panel the view holds, or reaching for its links would turn it away again.
+      const under = s.mxy && document.elementFromPoint(...s.mxy);
+      if (!under?.closest('.ar-side')) {
+        s.lkYaw += (-s.msX * (s.sides ? 0.9 : 0.45) - s.lkYaw) * 0.1;
+        s.lkPitch += (-s.msY * 0.2 - s.lkPitch) * 0.1;
+      }
       camera.rotateOnWorldAxis(THREE.Object3D.DEFAULT_UP, s.lkYaw);
       camera.rotateX(s.lkPitch);
+    }
+    // Toggling at About would ease the camera up from the globe through the floors and the dark between them,
+    // so a long move cuts instead.
+    if (s.swapPos && now - s.swapAt < 1400 && s.swapPos.distanceTo(camera.position) > 6) s.swapAt = -1e9;
+    const swap = easeInOutCubic(clamp01((now - s.swapAt) / 1400));
+    if (swap < 1) {
+      camera.position.lerpVectors(s.swapPos, camera.position, swap);
+      camera.quaternion.copy(s.swapQuat.clone().slerp(camera.quaternion, swap));
+    }
+    // The page turns with the view (linear in angle, which matches the strands well enough near the centre): the
+    // stages, and the marquees and section heads that pass between them.
+    const stages = document.querySelectorAll('.ar-stage, .moving, .section > .head');
+    if (AR) {
+      const f = H / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const yaw = tilt.on ? s.tiltYaw : COARSE ? 0 : s.lkYaw;
+      const pitch = tilt.on ? s.tiltPitch : COARSE ? 0 : s.lkPitch;
+      const t = `translate3d(${(yaw * f).toFixed(1)}px, ${(pitch * f).toFixed(1)}px, 0)`;
+      stages.forEach((el) => (el.style.transform = t));
+      s.turned = true;
+    } else if (s.turned) {
+      stages.forEach((el) => (el.style.transform = ''));
+      s.turned = false;
     }
     tmp.m4.makeRotationFromQuaternion(tmp.q.copy(camera.quaternion).invert().multiply(tmp.base));
     thread.uniforms.uLook.value.setFromMatrix4(tmp.m4);
 
     // Pin the globe where the page layout expects it while it is framed, easing in and out of the flight.
-    const pin = smooth(0.85, 1, p) * (1 - smooth(0, 0.35, q));
+    const pin = smooth(0.85, 1, p) * (1 - smooth(0, 0.35, q)) * swap;
     if (pin > 0.001) camera.setViewOffset(innerWidth, H, -dx * pin, -dy * pin, innerWidth, H);
     else if (camera.view?.enabled) camera.clearViewOffset();
 
@@ -625,9 +711,18 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     // AR: About's globe floats ahead of the viewer in the home frame (world-anchored) while About holds the screen.
     const gw = AR && intro.current ? hold(about) : 0;
     if (AR && intro.current) {
-      const sc = (compact ? 0.4 : 0.6) * gw;
-      tmp.gpos.subVectors(look, intro.current.to).normalize().multiplyScalar(AR_GLOBE_DIST).add(intro.current.to);
-      tmp.gpos.y += 0.5;
+      // Sized to fill its box the way the regular flight frames it, not a fixed fraction that reads tiny on phones.
+      const boxEl = about.querySelector('.spec-globe');
+      const fill = boxEl ? Math.min(GLOBE_FILL * boxEl.offsetHeight, 0.8 * innerWidth) / H : 0.5;
+      const sc = ((AR_GLOBE_DIST * Math.sin(Math.atan(fill * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))))) / 1.3) * gw;
+      tmp.gpos.subVectors(look, camera.position).normalize().multiplyScalar(AR_GLOBE_DIST).add(camera.position);
+      // Rides on its box in About's stage, read untransformed so the look-around doesn't move it twice.
+      const r = about.getBoundingClientRect();
+      const stageEl = about.querySelector('.ar-stage');
+      if (stageEl && boxEl) {
+        const top = Math.min(Math.max(r.top, 0), r.bottom - stageEl.offsetHeight) + boxEl.offsetTop + boxEl.offsetHeight / 2;
+        tmp.gpos.y += ((H / 2 - top) * 2 * AR_GLOBE_DIST * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / H;
+      }
       globe.current.position.copy(tmp.gpos);
       globe.current.scale.setScalar(Math.max(sc, 1e-3));
       globe.current.visible = gw > 0.01;
@@ -657,12 +752,12 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     tu.uAR.value = s.arK;
     // In AR the room recedes into fog as the page scrolls off the hero, so the cards stay legible over the panels.
     s.fog ??= [scene.fog.near, scene.fog.far];
-    const fk = s.arK * smooth(0.1 * H, H, y);
+    const fk = s.arK * smooth(0.1 * H, H, s.elev);
     scene.fog.near = THREE.MathUtils.lerp(s.fog[0], 3, fk);
     scene.fog.far = THREE.MathUtils.lerp(s.fog[1], 12, fk);
-    tu.uTravel.value = THREE.MathUtils.lerp(travel, y / PX_PER_UNIT, s.arK);
+    tu.uTravel.value = THREE.MathUtils.lerp(travel, s.elev / PX_PER_UNIT, s.arK);
     tu.uAspect.value = innerWidth / H;
-    tu.uOpacity.value = THREE.MathUtils.lerp(smooth(0.05, 0.5, q), smooth(0.1, 1, y / H), s.arK) * (0.85 + Math.min(0.5, s.vel * 0.02));
+    tu.uOpacity.value = THREE.MathUtils.lerp(smooth(0.05, 0.5, q), smooth(0.1, 1, s.elev / H), s.arK) * (0.85 + Math.min(0.5, s.vel * 0.02));
     // Nothing follows the hologram: the strands fade out with it as it leaves the top of the screen.
     if (jarvisLink.on) tu.uOpacity.value *= 1 - smooth(H * 0.15, -H * 0.35, jarvisLink.y);
     thread.lines.visible = tu.uOpacity.value > 0.01;
@@ -675,7 +770,7 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     s.msXs += (s.msX - s.msXs) * 0.046;
     rig.current.rotation.x += (s.msXs * 0.045 - rig.current.rotation.x) * 0.07;
 
-    const stage = !s.entered ? 'loading' : AR ? (gw > 0.5 ? 'globe' : 'hero') : p < 0.6 ? 'hero' : q < 0.95 ? 'globe' : 'river';
+    const stage = !s.entered ? 'loading' : AR ? (gw > 0.5 ? 'globe' : s.elev < H ? 'hero' : 'river') : p < 0.6 ? 'hero' : q < 0.95 ? 'globe' : 'river';
     if (stage !== s.stage) onStage((s.stage = stage));
 
     s.thermal += ((thermal ? 1 : 0) - s.thermal) * 0.08;
@@ -710,7 +805,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
   const [tiltOn, setTiltOn] = useState(tilt.on);
   const [arOn, setArOn] = useState(ar.on);
   useEffect(() => {
-    const on = () => setTiltOn(true);
+    const on = () => setTiltOn(tilt.on);
     const sync = () => setArOn(ar.on);
     if (tilt.on) on();
     addEventListener('rmr-tilt', on);
@@ -759,12 +854,12 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           <group ref={rig}>
             <NeonBars />
             {layout.map((pos, i) => (
-              <Panel key={REEL[i].title} src={REEL[i].video} position={pos} index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />
+              <Panel key={REEL[i].title} src={REEL[i].video} poster={REEL[i].poster} position={pos} index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />
             ))}
           </group>
           {around.map(({ pos, face }, k) => {
             const i = layout.length + k;
-            return <Panel key={REEL[i].title} src={REEL[i].video} position={pos} face={face} lazy index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />;
+            return <Panel key={REEL[i].title} src={REEL[i].video} poster={REEL[i].poster} position={pos} face={face} lazy index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />;
           })}
         </group>
         <group ref={globe} position={GLOBE}>
@@ -786,7 +881,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           onReady={onReady}
         />
       </Canvas>
-      {around.length > 0 && stage === 'hero' && <p className="ar-hint nav-font">◀ Turn to look around ▶</p>}
+      {(around.length > 0 || arOn) && stage === 'hero' && <p className="ar-hint nav-font">◀ Turn to look around ▶</p>}
       <div className="world-labels" style={{ visibility: stage === 'globe' ? 'visible' : 'hidden' }}>
         <p className="globe-home nav-font" ref={homeLabel}>
           <b>{HOME.label}</b> {HOME.tag}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SOCIALS, openMail } from '../data';
 import { useTypewriter } from '../fx/hooks';
-import { COARSE, THREE_D, TILT_ASK, ar, loadShown, setAR, startTilt } from '../env';
+import { COARSE, THREE_D, TILT_ASK, ar, loadShown, setAR, startTilt, stopTilt } from '../env';
 
 export const SECTIONS = [
   ['top', 'Main'],
@@ -61,6 +61,7 @@ const BADGES = [
   { label: 'Email', href: '#contact', onClick: openMail, icon: <path d="M5 7.5h14v9H5zM5 8l7 5 7-5" /> },
 ];
 
+
 export function TopBar({ started }) {
   const [inverted, setInverted] = useState(false);
   const [arOn, setArOn] = useState(ar.on);
@@ -76,11 +77,11 @@ export function TopBar({ started }) {
   }, []);
   // requestPermission has to be called inside the click's user gesture, so this can't wait for an effect.
   const toggleAR = async () => {
-    if (ar.on) return setAR(false);
-    if (COARSE) {
-      if (!TILT_ASK) startTilt();
-      else if ((await DeviceOrientationEvent.requestPermission().catch(() => null)) === 'granted') startTilt();
-    }
+    // Android's look-around is on by default and stays on; iOS's only ever runs with AR.
+    if (ar.on) return TILT_ASK && stopTilt(), setAR(false);
+    // Without motion access a phone can't look around, so it stays on the regular scroll flight.
+    if (COARSE && TILT_ASK && (await DeviceOrientationEvent.requestPermission().catch(() => null)) !== 'granted') return;
+    if (COARSE) startTilt();
     setAR(true);
   };
   return (
