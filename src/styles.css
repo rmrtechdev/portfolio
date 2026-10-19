@@ -321,7 +321,8 @@ button {
   gap: 14px;
   padding: 4px 10px 24px 6px;
   pointer-events: none;
-  background: linear-gradient(rgba(0, 0, 0, 0.85), transparent);
+  /* Just enough shade for the brand and chips over text scrolling beneath; not a bar. */
+  background: linear-gradient(rgba(0, 0, 0, 0.88), transparent);
 }
 .topbar > * {
   pointer-events: auto;
@@ -1621,10 +1622,7 @@ body {
   /* One compact row with a solid backing, so scrolled content never collides with the icons. */
   .topbar {
     align-items: center;
-    padding: 6px var(--gutter);
-    background: rgba(0, 0, 0, 0.88);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    padding: 6px var(--gutter) 20px;
   }
   .brand-block {
     display: flex;
