@@ -394,7 +394,8 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
       };
     }
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.5));
-    composer.addPass(new FilmPass(0.55, false));
+    // Phones keep only the bloom: each extra pass redraws the whole screen.
+    if (!compact) composer.addPass(new FilmPass(0.55, false));
     const thermalPass = new ShaderPass(ThermalShader);
     composer.addPass(thermalPass);
     const afterPass = new AfterimagePass(THERMAL_TRAIL);
@@ -425,6 +426,7 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
       state.current.msX = (e.clientX / innerWidth - 0.5) * 2;
       state.current.msY = (e.clientY / innerHeight - 0.5) * 2;
       state.current.mxy = [e.clientX, e.clientY];
+      state.current.touchAt = performance.now();
     };
     addEventListener('pointermove', onMove, { passive: true });
     return () => {
@@ -775,8 +777,16 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
 
     s.thermal += ((thermal ? 1 : 0) - s.thermal) * 0.08;
     thermalPass.uniforms.uAmount.value = s.thermal;
+    thermalPass.enabled = s.thermal > 0.001;
     afterPass.enabled = s.thermal > 0.03;
     afterPass.uniforms.damp.value = THERMAL_TRAIL * s.thermal;
+    // Phones: while nothing moves the view (no scroll, touch, turn or camera swap) the scene draws at 30fps; any
+    // input brings it straight back to full rate. The strands step on real time, so their motion is unchanged.
+    const turning = Math.abs(s.tiltYaw - (s.drawnYaw ?? 0)) + Math.abs(s.tiltPitch - (s.drawnPitch ?? 0)) > 0.002;
+    if (compact && s.ready && s.introDone && swap >= 1 && s.vel < 0.5 && !turning && now - (s.touchAt ?? 0) > 800 && now - s.drawnAt < 30) return;
+    s.drawnAt = now;
+    s.drawnYaw = s.tiltYaw;
+    s.drawnPitch = s.tiltPitch;
     composer.render(delta);
     if (!s.ready) {
       s.ready = true;
@@ -794,6 +804,8 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
  */
 export default function World({ thermal, progress, entering, onEntered, onReady, visitors }) {
   const compact = window.innerWidth < 760;
+  // A panel is a few hundred pixels wide on a phone, so it streams a 480px cut (public/media/video/*-sm.mp4).
+  const clip = (i) => (compact ? REEL[i].video.replace(/\.mp4$/, '-sm.mp4') : REEL[i].video);
   const layout = compact
     ? [[-0.8, 2.6, -0.6], [0.8, 0.9, 0.2], [-0.5, -0.8, 1.0]]
     : [[-3.9, 1.7, -1.6], [-1.5, 0.4, 0.3], [1.5, 1.7, -0.6], [3.6, 0.2, -1.8], [0.1, 3.0, -2.8]];
@@ -837,7 +849,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
 
   return (
     <div className={stage === 'loading' ? 'world loading' : 'world'} aria-hidden="true">
-      <Canvas dpr={[1, 1.25]} camera={{ position: [0, 1.4, camZ], fov: compact ? 55 : 42 }} gl={{ antialias: false, powerPreference: 'high-performance' }}>
+      <Canvas dpr={compact ? 1 : [1, 1.25]} camera={{ position: [0, 1.4, camZ], fov: compact ? 55 : 42 }} gl={{ antialias: false, powerPreference: 'high-performance' }}>
         <color attach="background" args={['#050505']} />
         <fog attach="fog" args={['#050505', camZ - 1, camZ + 13]} />
         <Lights />
@@ -854,12 +866,12 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           <group ref={rig}>
             <NeonBars />
             {layout.map((pos, i) => (
-              <Panel key={REEL[i].title} src={REEL[i].video} poster={REEL[i].poster} position={pos} index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />
+              <Panel key={REEL[i].title} src={clip(i)} poster={REEL[i].poster} position={pos} index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />
             ))}
           </group>
           {around.map(({ pos, face }, k) => {
             const i = layout.length + k;
-            return <Panel key={REEL[i].title} src={REEL[i].video} poster={REEL[i].poster} position={pos} face={face} lazy index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />;
+            return <Panel key={REEL[i].title} src={clip(i)} poster={REEL[i].poster} position={pos} face={face} lazy index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />;
           })}
         </group>
         <group ref={globe} position={GLOBE}>
