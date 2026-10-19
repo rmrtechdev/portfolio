@@ -2,7 +2,7 @@ import { media } from './env';
 
 // Kept reversed and split so the address never sits in the HTML or as one string in the bundle,
 // where scrapers harvest it; it is assembled only when a visitor asks to write.
-const MAILBOX = ['29leahcimdnomyar', 'moc.liamg'];
+const MAILBOX = ['namor', 'ved.hcetrmr'];
 
 /** Click handler that opens a new draft in the visitor's mail app. */
 export function openMail(e, subject = '', body = '') {
