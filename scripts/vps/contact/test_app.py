@@ -31,6 +31,7 @@ msg = sent[-1]
 assert msg["To"] == "roman@rmrtech.dev" and msg["Reply-To"] == "Ada <ada@example.com>"
 assert msg["From"].addresses[0].addr_spec == "form@rmrtech.dev"
 assert "Hi\nthere" in msg.get_content()
+assert msg["Message-ID"].endswith("@rmrtech.dev>") and msg["Date"]
 
 # A visitor can't add recipients or headers through any field.
 assert post({**ok, "subject": "x\r\nBcc: victim@example.com"}, ip="2.2.2.2") == 200

@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 from email.message import EmailMessage
-from email.utils import formataddr
+from email.utils import formataddr, formatdate, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "mail.rmrtech.dev")
@@ -68,6 +68,8 @@ def compose(f):
     msg["To"] = TO
     msg["Reply-To"] = formataddr((f["name"], f["email"]))
     msg["Subject"] = f"[rmrtech.dev] {f['subject'] or 'New message'}"
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain="rmrtech.dev")
     msg.set_content(f"From: {f['name'] or '(no name)'} <{f['email']}>\n\n{f['message'] or '(no message)'}\n")
     return msg
 
