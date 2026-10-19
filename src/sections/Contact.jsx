@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import emailjs from '@emailjs/browser';
 import { BRIEF_NEEDS, BRIEF_TIMELINES, openMail } from '../data';
 import { COARSE, REDUCED, WEBGL } from '../env';
 import { scramble, useTypewriter } from '../fx/hooks';
@@ -36,12 +35,13 @@ function Intake() {
     if (step < 2) return setStep(step + 1);
     setStatus('sending');
     try {
-      await emailjs.send(
-        'service_tyxx1cv',
-        'contact_form',
-        { user_name: brief.name, user_email: brief.email, subject, message: brief.message || '(no message)' },
-        'user_6nSZeKtgq6XdR3AX8fsxk'
-      );
+      // Relayed by the VPS through mail.rmrtech.dev (scripts/vps/contact/app.py).
+      const res = await fetch(`${import.meta.env.BASE_URL}api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: brief.name, email: brief.email, subject, message: brief.message }),
+      });
+      if (!res.ok) throw new Error(res.status);
       setStatus('sent');
     } catch {
       setStatus('error');

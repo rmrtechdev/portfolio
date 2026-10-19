@@ -9,6 +9,7 @@ ROOT=/srv/rmrtech/site
 SSH=(ssh -i "$KEY" -o BatchMode=yes)
 
 cd "$(dirname "$0")/.."
+"${SSH[@]}" "$HOST" "test -s /srv/rmrtech/contact.env" || { echo "refusing: /srv/rmrtech/contact.env (form@rmrtech.dev SMTP_PASS) is missing" >&2; exit 1; }
 # The VPS serves from the domain root; the default base is for GitHub Pages.
 ./node_modules/.bin/vite build --base=/ --outDir dist-rmrtech --emptyOutDir
 
@@ -21,6 +22,11 @@ stamp=$("${SSH[@]}" "$HOST" date +%Y%m%d-%H%M%S)
 "${SSH[@]}" "$HOST" "cp -a $ROOT $ROOT.bak-$stamp"
 # Synced in place: the container bind-mounts this directory, so replacing it would strand nginx on the old one.
 rsync -a --delete --delay-updates -e "${SSH[*]}" dist-rmrtech/ "$HOST:$ROOT/"
+
+# Compose, nginx and the contact form follow the repo too; `up -d` only restarts what changed.
+rsync -a -e "${SSH[*]}" scripts/vps/docker-compose.yml scripts/vps/nginx.conf "$HOST:/srv/rmrtech/"
+rsync -a --delete --exclude test_app.py --exclude __pycache__ -e "${SSH[*]}" scripts/vps/contact/ "$HOST:/srv/rmrtech/contact/"
+"${SSH[@]}" "$HOST" "cd /srv/rmrtech && docker compose up -d"
 "${SSH[@]}" "$HOST" "curl -fsS -o /dev/null http://127.0.0.1:8090/ && echo 'origin OK' && ls -d $ROOT.bak-* | head -n -3 | xargs -r rm -rf"
 
 echo "deployed; backup at $ROOT.bak-$stamp"

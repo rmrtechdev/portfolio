@@ -16,7 +16,6 @@
     "tunnel:refresh": "scripts/tunnel-refresh.sh"
   },
   "dependencies": {
-    "@emailjs/browser": "^3.12.1",
     "@react-three/fiber": "^8.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
