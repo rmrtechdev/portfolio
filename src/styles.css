@@ -11,11 +11,11 @@
   --hot: #fd2155;
   --cyan-rgb: 8, 253, 216;
   --pink-rgb: 255, 105, 180;
-  --display: 'Space Grotesk', system-ui, sans-serif;
+  --display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
   --copy: #cdd0d6;
   --kode: 'Kode Mono', ui-monospace, monospace;
   --anon: 'Anonymous Pro', ui-monospace, monospace;
-  --body: 'Inter', system-ui, sans-serif;
+  --body: 'Anonymous Pro', ui-monospace, monospace;
   --gutter: clamp(10px, 1.4vw, 20px);
   --rail: 130px;
   color-scheme: dark;
@@ -44,7 +44,8 @@ html::-webkit-scrollbar {
 .sprog {
   --p: 0;
   position: fixed;
-  top: 16px;
+  /* Starts under the top bar, so the % tag never lands on the corner mail link. */
+  top: 72px;
   bottom: 16px;
   right: 0;
   z-index: 48;
@@ -107,7 +108,7 @@ html::-webkit-scrollbar {
 body {
   background: transparent;
   color: var(--fg);
-  font: 700 17px/1.55 var(--body);
+  font: 400 17px/1.55 var(--body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -155,7 +156,7 @@ button {
 .nav-font {
   font-family: var(--anon);
   font-size: 0.74rem;
-  font-weight: 900;
+  font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -243,6 +244,20 @@ button {
 .gcursor i + i {
   border-color: var(--pink);
 }
+/* Soft light carried by the pointer: lifts whatever surface it passes over. */
+.gcursor b {
+  position: fixed;
+  left: -280px;
+  top: -280px;
+  z-index: 2147483645;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgba(var(--cyan-rgb), 0.03), rgba(var(--pink-rgb), 0.01) 55%, transparent);
+  will-change: transform;
+}
 
 /* Bottom melt glow */
 /* #root's own child, so it has to outrank `#root > *` below or it swallows taps meant for the world canvas. */
@@ -282,6 +297,146 @@ button {
   -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
 }
 
+/* Depth layers (fx/FxLayer.jsx). The vignette darkens the world under the page; the atmosphere is the glass
+   in front of everything. All of it is static paint moved only by transform or opacity. */
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 46%, transparent 45%, rgba(0, 0, 0, 0.42) 78%, rgba(0, 0, 0, 0.82) 100%);
+}
+/* No box of its own: a fixed, z-indexed wrapper would isolate its children's blend modes, so the overlay grain
+   and the screen lights would paint over the page as plain colour instead of blending with it. */
+#root > .atmo {
+  display: contents;
+}
+.atmo > * {
+  position: fixed;
+  z-index: 705;
+  pointer-events: none;
+}
+.atmo > :where(i) {
+  inset: 0;
+}
+.atmo-scan {
+  background: repeating-linear-gradient(rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+}
+.atmo-grain {
+  inset: -100%;
+  opacity: 0.14;
+  mix-blend-mode: overlay;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.4 -.2'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 0.9s steps(6) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  17% { transform: translate(-7%, 4%); }
+  33% { transform: translate(5%, -9%); }
+  50% { transform: translate(-11%, -3%); }
+  67% { transform: translate(8%, 7%); }
+  83% { transform: translate(-3%, 11%); }
+}
+/* Lens fringe: cyan on the left edge, pink on the right, as if the glass split the light at its rim. */
+.atmo-fringe {
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(90deg, rgba(var(--cyan-rgb), 0.03), transparent 5% 95%, rgba(var(--pink-rgb), 0.035));
+}
+/* Two soft stage lights hung above the frame, swinging slowly through the haze. */
+.atmo-shaft {
+  inset: -30% -10% 0;
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(100deg, transparent 18%, rgba(var(--cyan-rgb), 0.03) 24%, transparent 32%),
+    linear-gradient(76deg, transparent 62%, rgba(var(--pink-rgb), 0.03) 69%, transparent 77%);
+  mask-image: linear-gradient(#000, transparent 85%);
+  -webkit-mask-image: linear-gradient(#000, transparent 85%);
+  transform-origin: 50% 0;
+  animation: shaft 16s ease-in-out infinite alternate;
+}
+@keyframes shaft {
+  from { transform: rotate(-4deg) translateX(-3%); }
+  to { transform: rotate(4deg) translateX(3%); }
+}
+/* Scene cut between sections: the house lights dip while a scan line wipes down the screen. */
+.atmo-dim {
+  background: #000;
+  opacity: 0;
+}
+.atmo-wipe {
+  inset: 0 0 auto;
+  height: 34vh;
+  opacity: 0;
+  background: linear-gradient(transparent, rgba(var(--cyan-rgb), 0.05) 70%, rgba(var(--pink-rgb), 0.1) 96%, rgba(var(--cyan-rgb), 0.9) 99%, transparent);
+  transform: translateY(-40vh);
+}
+.atmo.cut .atmo-dim {
+  animation: dim 0.75s ease-out;
+}
+.atmo.cut .atmo-wipe {
+  animation: wipe 0.75s cubic-bezier(0.5, 0, 0.3, 1);
+}
+/* The section name as a near-camera silhouette: dark, melted and defocused, it passes in front of the page
+   and dims whatever lit strands or cards it crosses. It travels right to left, so the cyan rim catches light
+   on its leading edges, a faint pink one on the trailing side, and a stretched copy smears behind it.
+   Each copy is filtered once into the moving layer; the sweep itself is transform and opacity only. */
+.atmo-fore {
+  left: 0;
+  top: 50%;
+  font: 800 38vw / 0.8 var(--display);
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.atmo-fore span {
+  position: absolute;
+  inset: 0;
+}
+.atmo-fore .f-body {
+  position: relative;
+  display: block;
+  color: #1d1f22;
+  filter: url(#threshStrong) blur(4px);
+}
+/* Sits under the body one rim-width ahead, so only the edges facing the travel show. */
+.f-rim {
+  color: var(--cyan);
+  opacity: 0.7;
+  filter: url(#thresh) blur(1.5px);
+  transform: translateX(-5px);
+}
+.f-rim2 {
+  color: var(--pink);
+  opacity: 0.35;
+  filter: url(#thresh) blur(2px);
+  transform: translateX(4px);
+}
+.f-smear {
+  color: #1d1f22;
+  opacity: 0.55;
+  filter: blur(18px);
+  transform: scaleX(1.35);
+  transform-origin: 0 50%;
+}
+.atmo.cut .atmo-fore {
+  animation: fore 1.3s cubic-bezier(0.3, 0, 0.2, 1);
+}
+@keyframes fore {
+  0% { opacity: 0; transform: translate(70vw, -50%) scale(1.15); }
+  25%, 75% { opacity: 0.92; }
+  100% { opacity: 0; transform: translate(-100%, -50%) scale(1.05); }
+}
+@keyframes dim {
+  25% { opacity: 0.32; }
+}
+@keyframes wipe {
+  0% { opacity: 1; transform: translateY(-40vh); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(105vh); }
+}
+
 /* Loader: a black cover; the strand layer draws the loading animation above it. */
 .loader {
   position: fixed;
@@ -294,8 +449,8 @@ button {
   left: 50%;
   bottom: 5vh;
   z-index: 720;
-  font: 900 clamp(2.5rem, 6.8vw, 5rem) / 1 var(--display);
-  letter-spacing: -0.04em;
+  font: 800 clamp(3.5rem, 9vw, 7rem) / 1 var(--display);
+  letter-spacing: 0;
   color: var(--pink);
   pointer-events: none;
   opacity: 0;
@@ -349,49 +504,23 @@ button {
 }
 .brand,
 .tagline {
-  font: 900 clamp(1.3rem, 2.7vw, 2.2rem) / 1.1 var(--display);
-  letter-spacing: -0.03em;
+  font: 800 clamp(1.7rem, 3.5vw, 2.9rem) / 1 var(--display);
+  letter-spacing: 0;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 .brand {
   text-transform: uppercase;
-  color: #e9eaec;
+  color: #9b9ea4;
+  filter: url(#thresh);
   text-decoration: none;
   min-width: 5ch;
 }
 .tagline {
-  font-weight: 700;
-  color: #7d828c;
+  font-weight: 500;
+  color: #3e4147;
+  filter: url(#thresh);
   padding: 0 0.12em;
-}
-.badges {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 4px;
-  margin-top: 6px;
-}
-.badges a {
-  display: block;
-  width: 40px;
-  height: 40px;
-  color: var(--mid);
-  transition: color 0.2s;
-}
-.badges a:hover {
-  color: var(--pink);
-}
-.badges svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.badges .mark {
-  fill: currentColor;
-  stroke: none;
 }
 .chip {
   display: inline-flex;
@@ -414,6 +543,65 @@ button {
   gap: 8px;
   margin-left: auto;
   margin-right: 20px;
+}
+.corner-mail {
+  align-self: flex-start;
+  margin: 6px 22px 0 0;
+  font: 400 1.15rem var(--kode);
+  color: var(--pink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.corner-mail:hover {
+  color: var(--cyan);
+}
+.seal {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 46;
+  width: 86px;
+  height: 86px;
+  color: #6d7076;
+  filter: url(#thresh);
+}
+.seal svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.seal-ring {
+  font: 400 9.5px var(--anon);
+  letter-spacing: 0.12em;
+  fill: currentColor;
+  transform-origin: 50px 50px;
+  animation: sealSpin 28s linear infinite;
+}
+.seal-core {
+  font: 800 25px var(--display);
+  fill: currentColor;
+}
+.seal:hover {
+  color: var(--cyan);
+}
+@keyframes sealSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 759px) {
+  .corner-mail {
+    display: none;
+  }
+  /* No free corner on a phone: the seal would sit on body copy. */
+  .seal {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seal-ring {
+    animation: none;
+  }
 }
 .chip-icon {
   color: var(--cyan);
@@ -545,6 +733,104 @@ button {
   gap: 10px;
   color: var(--fg);
 }
+/* The off-site links, set as one HUD block with the kicker under it on the hero's empty floor. */
+/* Its own pane of dark glass with corner ticks, so it reads as an instrument over the room, not loose links. */
+.hero-links {
+  position: absolute;
+  left: 78px;
+  bottom: calc(clamp(70px, 9vw, 130px) + 40px);
+  z-index: 5;
+  padding: 10px 12px 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(var(--cyan), var(--cyan)) left top / 12px 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) left top / 1px 12px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) right top / 12px 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) right top / 1px 12px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) left bottom / 12px 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) left bottom / 1px 12px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) right bottom / 12px 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) right bottom / 1px 12px no-repeat,
+    rgba(3, 5, 6, 0.66);
+  background-origin: border-box;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+.hero-links::before {
+  content: '// Elsewhere' / '';
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.hero-links ul {
+  display: flex;
+  gap: 6px;
+}
+.hero-links a {
+  display: grid;
+  grid-template-columns: 28px auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 8px 16px 8px 9px;
+  text-decoration: none;
+  color: var(--mid);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(var(--cyan-rgb), 0.22);
+  box-shadow: inset 2px 0 0 var(--cyan);
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+.hero-links svg {
+  grid-row: 1 / 3;
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hero-links .mark {
+  fill: currentColor;
+  stroke: none;
+}
+.hl-k {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.hl-t {
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.hl-t i {
+  display: inline-block;
+  font-style: normal;
+  color: var(--cyan);
+  transition: transform 0.2s cubic-bezier(0.2, 1, 0.3, 1);
+}
+.hero-links a:focus-visible {
+  outline-offset: 3px;
+  border-color: var(--cyan);
+}
+@media (hover: hover) {
+  .hero-links a:hover {
+    color: var(--pink);
+    border-color: rgba(var(--pink-rgb), 0.7);
+    background-color: rgba(var(--pink-rgb), 0.08);
+    box-shadow: inset 2px 0 0 var(--pink);
+  }
+  .hero-links a:hover .hl-t i {
+    color: var(--pink);
+    transform: translate(2px, -2px);
+  }
+}
 .dot {
   width: 7px;
   height: 7px;
@@ -582,7 +868,7 @@ button {
 }
 .hero-ring-text {
   fill: currentColor;
-  font: 900 10px var(--anon);
+  font: 400 10px var(--anon);
   text-transform: uppercase;
 }
 .hero-ring-text,
@@ -627,52 +913,66 @@ button {
   overflow: hidden;
 }
 /* Starts below the line and hint (line + 16px gap + hint + breathing room); the sphere scales to this box's height, so the text never sits on it. */
+/* The left half under the lead: World.jsx frames the globe on this box, so moving it moves the globe. */
 .spec-globe {
   position: absolute;
-  inset: calc(10vh + var(--spec-line) + 64px) 0 0;
+  inset: calc(10vh + 9vw) 46% 0 0;
 }
 .giant {
   position: relative;
   z-index: 2;
   pointer-events: none;
 }
-/* The grey lead sits in the centre column; the typed item hangs off its right edge and may run into the side padding. */
+/* gobold's lead: a ghost line across the full width, the disciplines stacked under it on the right. */
 .giant-line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  min-height: 1.4em;
-  font: 900 clamp(1.5rem, 2.8vw, 3.2rem) / 1.4 var(--display);
-  letter-spacing: -0.04em;
+  font: 800 clamp(3rem, 8.6vw, 9.6rem) / 0.88 var(--display);
+  text-transform: uppercase;
+  color: #2e2f31;
+  filter: url(#threshStrong);
+  text-shadow: none;
+}
+.spec-list {
+  width: min(56%, 820px);
+  margin: clamp(10px, 2vw, 28px) 0 0 auto;
+  font: 800 clamp(2.2rem, 4.7vw, 5.4rem) / 1 var(--display);
+  text-transform: uppercase;
+  text-align: right;
+}
+.spec-list li {
   white-space: nowrap;
+  color: #2f3134;
+  filter: url(#thresh);
+  transition: color 0.3s;
+}
+.spec-list li.on {
   color: #f4f5f7;
-  text-shadow: 0 0 18px #000, 0 0 4px #000;
 }
-.giant-lead {
-  grid-column: 2;
-  padding-right: 0.25em;
-  color: #9aa0ab;
+.spec-plus {
+  margin-right: 0.04em;
 }
-/* Strands cross this line at its widest; a soft dark box behind the words keeps both halves legible. */
-.giant-lead,
-.giant-slot {
-  background: rgba(0, 0, 0, 0.5);
-  box-shadow: 0 0 28px 14px rgba(0, 0, 0, 0.5);
+.spec-list li.on .spec-plus {
+  color: var(--cyan);
 }
-.giant-slot {
-  grid-column: 3;
+.spec-list .giant-caret {
+  visibility: hidden;
 }
-/* Spans the full viewport (cancelling the section's uneven side padding) so the lead centres on the page and the globe. */
+.spec-list li.on .giant-caret {
+  visibility: visible;
+}
+/* Spans the full viewport (cancelling the section's uneven side padding) so the lead runs edge to edge. */
 .giant,
 .spec-hint {
   margin-left: calc(-1 * var(--gutter));
   margin-right: calc(-1 * (var(--rail) + var(--gutter)));
+  padding-left: var(--gutter);
+  padding-right: calc(var(--rail) + var(--gutter));
 }
 .giant-caret {
   display: inline-block;
-  width: 0.08em;
-  height: 0.9em;
-  margin-left: 0.08em;
-  vertical-align: -0.1em;
+  width: 0.4em;
+  height: 0.68em;
+  margin-left: 0.1em;
+  vertical-align: 0.02em;
   background: var(--pink);
   animation: caret 1s steps(1) infinite;
 }
@@ -706,8 +1006,8 @@ button {
 }
 .globe-home b {
   display: block;
-  font: 800 0.95rem / 1.2 var(--display);
-  letter-spacing: -0.01em;
+  font: 700 1.1rem / 1.2 var(--display);
+  letter-spacing: 0.02em;
   text-transform: none;
   color: #fff;
 }
@@ -726,7 +1026,7 @@ button {
   z-index: 2;
   margin-top: 16px;
   text-shadow: 0 0 8px #000;
-  text-align: center;
+  text-align: right;
   color: var(--dim);
 }
 .gbox-scrim {
@@ -744,7 +1044,7 @@ button {
   padding: 12px 14px;
   background: #000;
   border: 1px solid var(--mid);
-  font: 800 0.9rem / 1.55 var(--body);
+  font: 400 0.9rem / 1.55 var(--body);
   color: var(--copy);
 }
 .gbox.in {
@@ -821,10 +1121,18 @@ button {
 
 /* Snake */
 .snake {
-  margin: 0 var(--gutter) 6vh;
+  margin: 4vh calc(var(--rail) + var(--gutter)) 6vh var(--gutter);
   border: 1px solid rgba(var(--cyan-rgb), 0.7);
   outline: none;
   min-height: 200px;
+}
+@media (max-width: 900px) {
+  .snake {
+    margin-right: var(--gutter);
+  }
+}
+.snake.playing {
+  box-shadow: 0 0 0 1px rgba(var(--cyan-rgb), 0.35), 0 0 40px rgba(var(--cyan-rgb), 0.12);
 }
 .snake-hud {
   display: flex;
@@ -839,39 +1147,68 @@ button {
 .snake-hud b {
   color: #fff;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .snake-rule {
   flex: 1;
   height: 8px;
   background: repeating-linear-gradient(110deg, rgba(var(--cyan-rgb), 0.5) 0 1px, transparent 1px 6px);
 }
+.maze-lives {
+  display: inline-flex;
+  gap: 4px;
+}
+.maze-lives i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(var(--cyan-rgb), 0.5);
+}
+.maze-lives i.on {
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(var(--cyan-rgb), 0.8);
+}
+.maze-btn {
+  font: inherit;
+  color: var(--mid);
+  background: none;
+  border: 1px solid var(--line);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.maze-btn:hover,
+.maze-btn:focus-visible,
+.maze-btn[aria-pressed='true'] {
+  color: var(--cyan);
+  border-color: rgba(var(--cyan-rgb), 0.6);
+}
 .snake-stage {
   position: relative;
-}
-.snake-stage canvas {
-  display: block;
+  aspect-ratio: 14 / 5;
+  max-height: 78vh;
   width: 100%;
-  height: auto;
-  image-rendering: pixelated;
+  overflow: hidden;
+  background: #050505;
+  touch-action: pan-y;
+}
+.snake.playing .snake-stage {
+  touch-action: none;
+}
+.maze-crt {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.7));
+  mix-blend-mode: multiply;
 }
 .snake-overlay {
   position: absolute;
   inset: 0;
+  z-index: 4;
   overflow: hidden;
-  background: #000;
-  cursor: crosshair;
-}
-.snake-overlay img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  visibility: hidden;
-  filter: grayscale(1) contrast(1.4) brightness(0.45) sepia(1) hue-rotate(135deg) saturate(3);
-}
-.snake-overlay img.on {
-  visibility: visible;
+  background: radial-gradient(60% 55% at 50% 50%, rgba(5, 5, 5, 0.55), rgba(5, 5, 5, 0.1) 70%, transparent);
 }
 .snake-play {
   position: absolute;
@@ -889,16 +1226,96 @@ button {
   background: #000;
   color: var(--pink);
 }
+.maze-legend {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + 30px);
+  margin: 0;
+  padding: 7px 16px;
+  text-align: center;
+  color: var(--copy);
+  font-size: 0.72rem;
+  background: linear-gradient(90deg, transparent, rgba(5, 5, 5, 0.88) 28% 72%, transparent);
+}
+.maze-legend .you {
+  color: var(--cyan);
+}
+.maze-legend .core {
+  color: var(--pink);
+}
 .snake-keys {
   position: absolute;
   left: 50%;
   bottom: 12px;
   z-index: 5;
   transform: translateX(-50%);
+  margin: 0;
   color: var(--mid);
   background: #000;
   padding: 2px 8px;
   font-size: 0.72rem;
+  white-space: nowrap;
+}
+.maze-banner {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  z-index: 3;
+  margin: 0;
+  transform: translateX(-50%);
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 4vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(var(--cyan-rgb), 0.9), -2px 0 var(--pink);
+  pointer-events: none;
+}
+.maze-paused {
+  background: rgba(5, 5, 5, 0.55);
+}
+.maze-paused .maze-banner {
+  top: 30%;
+}
+.maze-actions {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  transform: translateX(-50%);
+}
+.maze-actions .snake-play {
+  position: static;
+  transform: none;
+}
+@media (max-width: 759px) {
+  .snake-stage {
+    aspect-ratio: 4 / 5;
+  }
+  .snake-hud {
+    gap: 8px;
+    padding: 8px;
+    font-size: 0.72rem;
+  }
+  .snake-rule,
+  .maze-best,
+  .snake.playing .maze-name {
+    display: none;
+  }
+  .snake-hud .maze-btn:last-child {
+    margin-left: auto;
+  }
+  .snake.playing .snake-hud .maze-btn:last-child {
+    margin-left: auto;
+  }
+  .maze-legend {
+    top: calc(50% + 34px);
+    background: linear-gradient(90deg, transparent, rgba(5, 5, 5, 0.88) 12% 88%, transparent);
+  }
 }
 
 /* Headlines rise into a fixed window: translate and clip-path move by the same fraction on the same
@@ -966,6 +1383,7 @@ main > * {
   pointer-events: none;
 }
 .hero .hud-toggle,
+.hero .hero-links,
 .hero .hero-ring {
   pointer-events: auto;
 }
@@ -994,27 +1412,17 @@ body {
   padding: clamp(60px, 8vw, 110px) calc(var(--rail) + var(--gutter)) clamp(40px, 6vw, 80px) var(--gutter);
 }
 .head {
-  font: 900 clamp(3rem, 9vw, 7.6rem) / 1.05 var(--display);
-  letter-spacing: -0.045em;
+  font: 800 clamp(4rem, 13vw, 11rem) / 0.92 var(--display);
+  letter-spacing: 0;
+  text-transform: uppercase;
   text-align: right;
   margin-bottom: clamp(24px, 3.4vw, 48px);
   min-height: 1.05em;
-  filter: drop-shadow(0 0 14px #000);
+  color: #2e2f31;
+  filter: url(#threshStrong);
 }
 .head span {
-  background: linear-gradient(180deg, #f4f5f7 10%, #6f7480 95%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
   padding-bottom: 0.08em;
-}
-.head::after {
-  content: '';
-  display: inline-block;
-  width: 0.13em;
-  height: 0.13em;
-  margin-left: 0.04em;
-  background: var(--pink);
 }
 .chips {
   display: flex;
@@ -1070,13 +1478,16 @@ body {
   font-size: 0.72rem;
 }
 .pf-name {
-  font: 800 clamp(1.15rem, 1.9vw, 1.45rem) / 1.2 var(--display);
-  letter-spacing: -0.02em;
+  font: 700 clamp(1.6rem, 2.6vw, 2.1rem) / 1 var(--display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   color: #fff;
 }
 .pf-copy {
   color: var(--copy);
-  font: 800 0.95rem / 1.65 var(--body);
+  font: 400 0.82rem / 1.7 var(--body);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .pf-stage {
   position: relative;
@@ -1156,13 +1567,51 @@ body {
   inset: 0;
   cursor: grab;
   touch-action: pan-y;
+  --tick: rgba(var(--cyan-rgb), 0.5);
+  background:
+    linear-gradient(var(--tick), var(--tick)) 0 0 / 14px 1px,
+    linear-gradient(var(--tick), var(--tick)) 0 0 / 1px 14px,
+    linear-gradient(var(--tick), var(--tick)) 100% 0 / 14px 1px,
+    linear-gradient(var(--tick), var(--tick)) 100% 0 / 1px 14px,
+    linear-gradient(var(--tick), var(--tick)) 0 100% / 14px 1px,
+    linear-gradient(var(--tick), var(--tick)) 0 100% / 1px 14px,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 14px 1px,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 1px 14px;
+  background-repeat: no-repeat;
+}
+.svc-stage:active {
+  cursor: grabbing;
+}
+/* Readouts World.jsx writes as the look and the turn change. */
+.svc-stage::before,
+.svc-stage::after {
+  position: absolute;
+  font-family: var(--kode);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  pointer-events: none;
+}
+.svc-stage::before {
+  content: '■ ' attr(data-mode);
+  top: 10px;
+  left: 14px;
+  color: var(--cyan);
+}
+.svc-stage::after {
+  content: attr(data-yaw) ' · DRAG';
+  top: 10px;
+  right: 14px;
 }
 .svc-meta {
   position: absolute;
-  left: 0;
-  bottom: -22px;
+  right: 14px;
+  bottom: 10px;
+  margin: 0;
   color: var(--dim);
   font-size: 0.72rem;
+  white-space: nowrap;
+  pointer-events: none;
 }
 /* Lead-in: World.jsx spreads the strands' forming of the workstation across this space, finishing as the first card arrives. */
 .svc-grid {
@@ -1194,20 +1643,110 @@ body {
   font-size: 0.72rem;
 }
 .sa-title {
-  font: 800 clamp(1.15rem, 1.9vw, 1.45rem) / 1.2 var(--display);
-  letter-spacing: -0.02em;
+  font: 700 clamp(1.6rem, 2.6vw, 2.1rem) / 1 var(--display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   color: #fff;
 }
 .sa-copy {
   color: var(--copy);
-  font: 800 0.95rem / 1.65 var(--body);
+  font: 400 0.82rem / 1.7 var(--body);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .sa-art {
+  position: relative;
   height: clamp(170px, 18vw, 240px);
+  border-top: 1px solid #181818;
+  border-bottom: 1px solid #181818;
+  background: #030303;
+  overflow: hidden;
+  transform: perspective(900px) rotateX(var(--sa-rx, 0deg)) rotateY(var(--sa-ry, 0deg));
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.sa-card.lit .sa-art,
+.sa-card:hover .sa-art {
+  background: #000805;
+  box-shadow: 0 22px 40px -26px rgba(var(--cyan-rgb), 0.35), 0 0 0 1px rgba(var(--cyan-rgb), 0.08);
+}
+/* Phosphor texture over the art: dark scanlines every 4px and faint cyan column ticks, drifting. */
+.sa-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(var(--cyan-rgb), 0.06) 0 1px, transparent 1px 19px);
+  opacity: 0.6;
+  animation: sa-scan 3.8s linear infinite;
+}
+@keyframes sa-scan {
+  to {
+    background-position: 0 28px, 76px 0;
+  }
+}
+.sa-art::after {
+  content: '';
+  position: absolute;
+  left: var(--sa-x, 8%);
+  top: 13px;
+  z-index: 3;
+  width: 38px;
+  height: 22px;
+  border: 1px solid rgba(var(--cyan-rgb), 0.75);
+  background: rgba(var(--cyan-rgb), 0.05);
+  box-shadow: 0 0 18px rgba(var(--cyan-rgb), 0.14);
+  pointer-events: none;
+  animation: sa-probe 4s steps(2) infinite;
+}
+.sa-card:nth-child(2) .sa-art::after {
+  --sa-x: 66%;
+  animation-delay: 0.42s;
+}
+.sa-card:nth-child(3) .sa-art::after {
+  --sa-x: 36%;
+  animation-delay: 0.76s;
+}
+.sa-card:hover .sa-art::after {
+  border-color: var(--pink);
+  background: rgba(var(--pink-rgb), 0.06);
+  box-shadow: 0 0 18px rgba(var(--pink-rgb), 0.2);
+}
+@keyframes sa-probe {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: none;
+  }
+  28% {
+    opacity: 0.34;
+    transform: translateX(10px);
+  }
+  54% {
+    opacity: 1;
+    transform: translateX(-5px);
+  }
+  72% {
+    opacity: 0.55;
+    transform: translateX(2px);
+  }
 }
 .sa-art canvas {
+  display: block;
   width: 100%;
   height: 100%;
+}
+.sa-card.lit .sa-art canvas,
+.sa-card:hover .sa-art canvas {
+  filter: brightness(1.2) saturate(1.15);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sa-art::before,
+  .sa-art::after {
+    animation: none;
+  }
 }
 
 /* Latest done */
@@ -1229,13 +1768,14 @@ body {
   font-size: 0.72rem;
 }
 .pj-title {
-  font: 800 clamp(1.3rem, 2.2vw, 1.75rem) / 1.2 var(--display);
-  letter-spacing: -0.02em;
+  font: 700 clamp(1.9rem, 3.2vw, 2.6rem) / 1 var(--display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   color: #fff;
 }
 .pj-copy {
   color: var(--copy);
-  font: 900 0.8rem / 1.8 var(--anon);
+  font: 400 0.8rem / 1.8 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   max-width: 56ch;
@@ -1245,10 +1785,38 @@ body {
   aspect-ratio: 16 / 9;
   overflow: hidden;
 }
+.pj-media canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pj-media.art::after {
+  display: none;
+}
 .pj-media video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  filter: grayscale(1) contrast(1.2) brightness(0.85);
+  transition: filter 0.45s;
+}
+.pj-media.light video {
+  filter: invert(1) grayscale(1) contrast(1.35) brightness(0.9);
+}
+.pj-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 3px), rgb(var(--cyan-rgb));
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: opacity 0.45s;
+}
+.pj-card:hover .pj-media video {
+  filter: none;
+}
+.pj-card:hover .pj-media::after {
+  opacity: 0;
 }
 .pj-split {
   position: absolute;
@@ -1294,7 +1862,7 @@ body {
 }
 .pj-tag {
   color: var(--pink);
-  font: 900 0.8rem / 1.6 var(--anon);
+  font: 400 0.8rem / 1.6 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1312,7 +1880,7 @@ body {
   gap: 10px;
   align-items: baseline;
   color: var(--copy);
-  font: 900 0.78rem / 1.7 var(--anon);
+  font: 400 0.78rem / 1.7 var(--anon);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -1385,11 +1953,23 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: grayscale(1) contrast(1.2) brightness(0.6);
-  transition: filter 0.3s;
+  filter: grayscale(1) contrast(1.2) brightness(0.8);
+  transition: filter 0.4s;
+}
+.demo-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 3px), rgb(var(--cyan-rgb));
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: opacity 0.4s;
 }
 .demo:hover .demo-frame img {
   filter: none;
+}
+.demo:hover .demo-frame::after {
+  opacity: 0;
 }
 .demo figcaption {
   margin-top: 8px;
@@ -1459,7 +2039,7 @@ body {
 }
 .ik-prompt {
   margin: 14px 0 6px;
-  font: 800 1.35rem / 1.3 var(--display);
+  font: 700 1.7rem / 1.2 var(--display);
   letter-spacing: -0.02em;
   text-transform: none;
   color: #f0f1f3;
@@ -1471,7 +2051,7 @@ body {
 }
 .ik-sub {
   color: var(--copy);
-  font: 700 0.9rem / 1.5 var(--body);
+  font: 400 0.9rem / 1.5 var(--body);
   text-transform: none;
   letter-spacing: 0;
   margin-bottom: 14px;
@@ -1484,7 +2064,7 @@ body {
 }
 .ik-chip {
   padding: 7px 11px;
-  font: 900 0.72rem var(--anon);
+  font: 400 0.72rem var(--anon);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--grey);
@@ -1513,7 +2093,7 @@ body {
 }
 .ik-fields input,
 .ik-fields textarea {
-  font: 700 0.9rem var(--body);
+  font: 400 0.9rem var(--body);
   color: #e0e0e0;
   background: #111;
   border: 1px solid transparent;
@@ -1581,11 +2161,14 @@ body {
 .endcap {
   display: inline-block;
   padding: 2px 10px 0;
-  font: 900 clamp(2.4rem, 6.8vw, 5.8rem) / 1.1 var(--display);
-  letter-spacing: -0.045em;
+  font: 800 clamp(3.2rem, 9.5vw, 8.2rem) / 1 var(--display);
+  letter-spacing: 0;
+  text-transform: uppercase;
   text-decoration: none;
-  color: #f0f1f3;
+  color: #5b5d61;
+  filter: url(#threshStrong);
   white-space: nowrap;
+  transition: color 0.25s;
 }
 .endcap:hover {
   color: var(--pink);
@@ -1629,9 +2212,6 @@ body {
     align-items: center;
     gap: 10px;
   }
-  .badges {
-    margin-top: 0;
-  }
   .chip {
     margin-top: 0;
   }
@@ -1662,16 +2242,24 @@ body {
   .spec-hint {
     margin-left: 0;
     margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .spec-list {
+    width: 100%;
+    font-size: clamp(1.4rem, 6.4vw, 2.4rem);
+  }
+  .spec-list li {
+    white-space: normal;
+  }
+  .spec-globe {
+    inset: 38% 0 0;
   }
   .spec {
     --spec-line: calc(2.8 * 1.5rem);
   }
   .chip {
     margin-right: 0;
-  }
-  .badges a {
-    width: 32px;
-    height: 32px;
   }
   .team,
   .pj-grid,
@@ -1705,6 +2293,27 @@ body {
   }
   .hero-kicker {
     left: var(--gutter);
+  }
+  /* No backdrop blur on phones (see the cards below); the pane just gets denser. */
+  .hero-links {
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: 52px;
+    padding: 8px;
+    background-color: rgba(3, 5, 6, 0.8);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .hero-links ul {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .hero-links a {
+    grid-template-columns: auto;
+    padding: 7px 8px 7px 10px;
+  }
+  .hero-links svg {
+    display: none;
   }
   .hero-fallback {
     grid-template-columns: 1fr;
@@ -1757,6 +2366,8 @@ body {
     scroll-behavior: auto;
   }
   .moving-track,
+  .atmo-grain,
+  .atmo-shaft,
   .dot,
   .ik-cur,
   .hero-ring-text,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SOCIALS, openMail } from '../data';
+import { openMail } from '../data';
 import { useTypewriter } from '../fx/hooks';
 import { COARSE, THREE_D, TILT_ASK, ar, loadShown, setAR, startTilt, stopTilt } from '../env';
 
@@ -50,18 +50,6 @@ export function Loader({ ready, onProgress, onComplete }) {
   );
 }
 
-const BADGES = [
-  // The GitHub mark is a filled roundel, so it replaces the outline circle instead of sitting inside one.
-  { label: 'GitHub', href: SOCIALS[0].href, mark: true, icon: <path className="mark" transform="translate(.5 .5) scale(.958)" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3" /> },
-  {
-    label: 'LinkedIn',
-    href: SOCIALS[1].href,
-    icon: <path d="M12 11.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.5 19c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5" />,
-  },
-  { label: 'Email', href: '#contact', onClick: openMail, icon: <path d="M5 7.5h14v9H5zM5 8l7 5 7-5" /> },
-];
-
-
 export function TopBar({ started }) {
   const [inverted, setInverted] = useState(false);
   const [arOn, setArOn] = useState(ar.on);
@@ -91,24 +79,6 @@ export function TopBar({ started }) {
           {brand.shown}
         </a>
         <span className="tagline">{brand.done ? tag.shown : ' '}</span>
-        <ul className="badges">
-          {BADGES.map((b) => (
-            <li key={b.label}>
-              <a
-                href={b.href}
-                aria-label={b.label}
-                title={b.label}
-                onClick={b.onClick}
-                {...(b.href.startsWith('http') && { target: '_blank', rel: 'noreferrer' })}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  {!b.mark && <circle cx="12" cy="12" r="11" />}
-                  {b.icon}
-                </svg>
-              </a>
-            </li>
-          ))}
-        </ul>
       </div>
       <div className="topbar-chips">
         {THREE_D && (
@@ -120,7 +90,32 @@ export function TopBar({ started }) {
           <span className="chip-icon" aria-hidden="true">{inverted ? '◑' : '◐'}</span> <span className="chip-label">Invert site</span>
         </button>
       </div>
+      {/* gobold pins its address here; the address stays out of the DOM (see MAILBOX), so this opens the draft instead. */}
+      <a className="corner-mail" href="#contact" onClick={openMail}>
+        Write to me ↗
+      </a>
     </header>
+  );
+}
+
+/** Rotating stamp pinned bottom-left on every screen, gobold's seal. */
+export function Seal() {
+  return (
+    <a className="seal" href="#top" aria-label="Back to top">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <path id="seal-path" d="M 50,50 m -39,0 a 39,39 0 1,1 78,0 a 39,39 0 1,1 -78,0" />
+        </defs>
+        <text className="seal-ring">
+          <textPath href="#seal-path" textLength="242" lengthAdjust="spacing">
+            R.M.ROMAN · NEW YORK · FULL STACK · {new Date().getFullYear()} ·
+          </textPath>
+        </text>
+        <text className="seal-core" x="50" y="58" textAnchor="middle">
+          RMR
+        </text>
+      </svg>
+    </a>
   );
 }
 

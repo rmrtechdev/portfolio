@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { Loader, ScrollProgress, SideRail, TopBar } from './chrome/Chrome';
-import { FxDefs, GlitchCursor, RgbBlur } from './fx/FxLayer';
+import { Loader, ScrollProgress, Seal, SideRail, TopBar } from './chrome/Chrome';
+import { Atmosphere, FxDefs, GlitchCursor, RgbBlur, Vignette } from './fx/FxLayer';
 import { THREE_D } from './env';
 import { STATEMENT } from './data';
 import { Hero, MovingText, Specializing } from './sections/Intro';
@@ -10,6 +10,7 @@ import Contact, { JarvisZone } from './sections/Contact';
 import { countVisit } from './fx/visitors';
 
 const World = lazy(() => import('./three/World'));
+const Snake = lazy(() => import('./sections/Snake'));
 
 export default function App() {
   const [sceneReady, setSceneReady] = useState(!THREE_D);
@@ -53,15 +54,20 @@ export default function App() {
           />
         </Suspense>
       )}
+      <Vignette />
       {THREE_D && !entered && <Loader ready={sceneReady} onProgress={setProgress} onComplete={() => setEntering(true)} />}
       <a className="skip" href="#work">Skip to work</a>
       <TopBar started={entered} />
       <SideRail />
+      <Seal />
       <ScrollProgress />
       <main>
         <Hero thermal={thermal} onThermal={setThermal} />
         <Specializing visitors={visitors} onVisitors={setVisitors} />
         <MovingText />
+        <Suspense fallback={null}>
+          <Snake />
+        </Suspense>
         <Team />
         <MovingText text={STATEMENT} sep=" · " label small />
         <Services />
@@ -77,6 +83,7 @@ export default function App() {
         <a href="#top">Back to top ↑</a>
       </footer>
       <RgbBlur />
+      <Atmosphere />
       <GlitchCursor />
     </>
   );

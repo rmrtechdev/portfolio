@@ -15,6 +15,7 @@ import { HOME, PROJECTS, REEL } from '../data';
 import { Earth } from './Globe';
 import { plantGeometry, plantRows } from './growRoom';
 import { createStack } from './stack';
+import { StackPass } from './stackPost';
 import { STRAND_VERTS, createStrands, stepStrands } from './strands';
 import { createThread } from './thread';
 
@@ -47,6 +48,24 @@ const ThermalShader = {
   `,
 };
 
+// Lens fringe: red and blue split apart only toward the corners; everything inside 0.55 of the centre stays untouched.
+const LensShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: passVertex,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    void main() {
+      vec2 d = vUv - 0.5;
+      float r = length(d);
+      vec4 c = texture2D(tDiffuse, vUv);
+      if (r < 0.55) { gl_FragColor = c; return; }
+      vec2 o = d / r * smoothstep(0.55, 0.71, r) * 0.0035;
+      gl_FragColor = vec4(texture2D(tDiffuse, vUv + o).r, c.g, texture2D(tDiffuse, vUv - o).b, c.a);
+    }
+  `,
+};
+
 const CYAN = '#08fdd8';
 const PINK = '#ff69b4';
 const PANEL_W = 2.6;
@@ -66,6 +85,47 @@ addEventListener('click', unstall, true);
 
 const posters = new THREE.TextureLoader();
 
+const probe = document.createElement('canvas');
+probe.width = probe.height = 16;
+const probeCtx = probe.getContext('2d', { willReadFrequently: true });
+/** Mean luma of an image or video frame, 0-1; decides whether a screen's grade inverts. */
+function meanLuma(src) {
+  try {
+    probeCtx.drawImage(src, 0, 0, 16, 16);
+    const d = probeCtx.getImageData(0, 0, 16, 16).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    return sum / (d.length / 4) / 255;
+  } catch {
+    return 0.3;
+  }
+}
+
+// Every screen is graded to one cyan phosphor, like gobold's red monitors, so six unrelated UIs read as one set.
+// Light UIs invert (glowing type on black instead of a white slab); hover decloaks the real colours.
+const GRADE_FRAGMENT = /* glsl */ `
+#ifdef USE_MAP
+  float gOff = 0.0018 * (1.0 - uReveal);
+  vec4 gSrc = texture2D(map, vMapUv);
+  vec3 gRaw = vec3(texture2D(map, vMapUv + vec2(gOff, 0.0)).r, gSrc.g, texture2D(map, vMapUv - vec2(gOff, 0.0)).b);
+  const vec3 gW = vec3(0.2126, 0.7152, 0.0722);
+  float gL = dot(gRaw, gW);
+  float gN = 0.25 * (dot(texture2D(map, vMapUv + vec2(0.0016, 0.0)).rgb, gW) + dot(texture2D(map, vMapUv - vec2(0.0016, 0.0)).rgb, gW)
+    + dot(texture2D(map, vMapUv + vec2(0.0, 0.0026)).rgb, gW) + dot(texture2D(map, vMapUv - vec2(0.0, 0.0026)).rgb, gW));
+  // Edges carry the glow, flat fills sink: white panels and dark pages both read as lit type on a dark tube.
+  float gEdge = clamp(abs(gL - gN) * 7.0, 0.0, 1.0);
+  gL = clamp(pow(clamp(mix(gL, 1.0 - gL, uInvert), 0.0, 1.0), 0.7) * 0.55 + gEdge, 0.0, 1.0);
+  vec3 gInk = mix(vec3(0.0), vec3(0.0, 0.03, 0.026), smoothstep(0.0, 0.18, gL));
+  gInk = mix(gInk, vec3(0.002, 0.98, 0.69), smoothstep(0.16, 0.72, gL));
+  gInk = mix(gInk, vec3(0.85, 1.0, 0.96), smoothstep(0.9, 1.0, gL));
+  float gScan = 0.78 + 0.22 * step(0.5, fract(vMapUv.y * 170.0));
+  float gBand = exp(-pow((fract(vMapUv.y - uTime * 0.11) - 0.5) * 9.0, 2.0));
+  vec2 gE = vMapUv * (1.0 - vMapUv);
+  gInk = (gInk * gScan + vec3(1.0, 0.14, 0.46) * gBand * 0.07) * pow(16.0 * gE.x * gE.y, 0.22);
+  diffuseColor.rgb *= mix(gInk, gRaw, uReveal);
+#endif
+`;
+
 /** The video as a texture, showing `poster` until the video has a frame of its own. */
 function useVideoTexture(src, poster, active, lazy) {
   const video = useMemo(() => {
@@ -80,16 +140,20 @@ function useVideoTexture(src, poster, active, lazy) {
     return t;
   }, [video]);
   const still = useMemo(() => {
-    const t = posters.load(poster);
+    const t = posters.load(poster, (l) => (l.userData.light = meanLuma(l.image)));
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, [poster]);
   const [framed, setFramed] = useState(false);
   useEffect(() => {
-    const on = () => setFramed(true);
+    let probedAt = -1e9;
+    const on = () => ((texture.userData.light = meanLuma(video)), setFramed(true));
+    // Recordings cut between light and dark pages, so the grade re-reads the frame every couple of seconds.
+    const tick = () => performance.now() - probedAt > 2000 && ((probedAt = performance.now()), (texture.userData.light = meanLuma(video)));
     video.addEventListener('loadeddata', on);
-    return () => video.removeEventListener('loadeddata', on);
-  }, [video]);
+    video.addEventListener('timeupdate', tick);
+    return () => (video.removeEventListener('loadeddata', on), video.removeEventListener('timeupdate', tick));
+  }, [video, texture]);
   useEffect(() => {
     if (active) video.play().catch(() => stalled.add(video));
     else stalled.delete(video), video.pause();
@@ -121,6 +185,14 @@ function Panel({ src, poster, position, index, active, onSelect, register, face,
   const [seen, setSeen] = useState(!lazy);
   const seenNow = useRef(seen);
   const map = useVideoTexture(src, poster, active && seen, lazy);
+  const grade = useMemo(() => ({ uReveal: { value: 0 }, uInvert: { value: 0 }, uTime: { value: 0 } }), []);
+  const gradeShader = useMemo(
+    () => (shader) => {
+      Object.assign(shader.uniforms, grade);
+      shader.fragmentShader = `uniform float uReveal;\nuniform float uInvert;\nuniform float uTime;\n${shader.fragmentShader}`.replace('#include <map_fragment>', GRADE_FRAGMENT);
+    },
+    [grade]
+  );
   const frameEdges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(PANEL_W + 0.14, PANEL_H + 0.14, 0.08)), []);
   const cable = useMemo(() => {
     const top = CEILING - position[1];
@@ -145,6 +217,9 @@ function Panel({ src, poster, position, index, active, onSelect, register, face,
     group.current.rotation.z = Math.sin(t * 0.5 + index) * 0.025;
     group.current.rotation.y = (face ? face[1] : -position[0] * 0.09) + Math.sin(t * 0.3 + index * 1.7) * 0.06;
     group.current.position.y = position[1] + Math.sin(t * 0.7 + index) * 0.04;
+    grade.uTime.value = t;
+    grade.uReveal.value += ((hovered ? 1 : 0) - grade.uReveal.value) * 0.12;
+    grade.uInvert.value += (smooth(0.42, 0.6, map.userData.light ?? 0) - grade.uInvert.value) * 0.05;
     edges.current.material.opacity = hovered ? 1 : 0.2 + (0.5 + Math.sin(t * 2) * 0.3) * 0.25;
     edges.current.material.color.set(hovered ? PINK : CYAN);
   });
@@ -166,7 +241,7 @@ function Panel({ src, poster, position, index, active, onSelect, register, face,
         onClick={() => onSelect(index)}
       >
         <planeGeometry args={[PANEL_W, PANEL_H]} />
-        <meshBasicMaterial map={map} color="#8c8c8c" />
+        <meshBasicMaterial map={map} color="#8c8c8c" onBeforeCompile={gradeShader} customProgramCacheKey={() => 'screen-grade'} />
       </mesh>
       <lineSegments ref={edges} geometry={frameEdges}>
         <lineBasicMaterial color={CYAN} transparent opacity={0.3} toneMapped={false} />
@@ -194,6 +269,82 @@ function NeonBars() {
       <pointLight color={PINK} intensity={4} distance={7} decay={1.6} position={[0, -0.25, 0]} />
     </group>
   ));
+}
+
+const SIGN_W = 1.7;
+const SIGN_H = SIGN_W * (1340 / 1024);
+const SIGN_Y = 1.3;
+
+/** Draws the hero's standing poster: the site's statement as an object in the room, gobold's "winner" board. */
+function drawSign(ctx) {
+  const W = 1024;
+  const H = 1340;
+  const D = '"Big Shoulders Display", "Arial Narrow", sans-serif';
+  const M = '"Anonymous Pro", ui-monospace, monospace';
+  ctx.fillStyle = '#010605';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = CYAN;
+  ctx.fillRect(56, 56, W - 112, 190);
+  ctx.fillStyle = '#010605';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `800 176px ${D}`;
+  ctx.fillText('R.M.ROMAN', 80, 222);
+  ctx.fillStyle = CYAN;
+  ctx.font = `800 236px ${D}`;
+  ['BUILDS', 'THE WHOLE', 'THING.'].forEach((line, i) => ctx.fillText(line, 64, 500 + i * 214));
+  ctx.fillRect(64, 1004, W - 128, 4);
+  ctx.font = `400 42px ${M}`;
+  [['PYTHON / DJANGO', 'REACT / NEXT.JS'], ['THREE.JS / WEBGL', 'APPLIED AI / MCP']].forEach((row, r) =>
+    row.forEach((t, c) => ctx.fillText(t, 64 + c * 470, 1078 + r * 62))
+  );
+  ctx.fillStyle = PINK;
+  ctx.fillText('■ OPEN TO ROLES — NYC / REMOTE', 64, 1268);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 2);
+}
+
+function Sign() {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1340;
+    const t = new THREE.CanvasTexture(canvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }, []);
+  useEffect(() => {
+    let live = true;
+    const paint = () => live && (drawSign(texture.image.getContext('2d')), (texture.needsUpdate = true));
+    paint();
+    // Canvas text can't wait on CSS: draw now, then again once the faces it names have arrived.
+    Promise.all(['800 200px "Big Shoulders Display"', '400 40px "Anonymous Pro"'].map((f) => document.fonts.load(f))).then(paint, () => {});
+    return () => ((live = false), texture.dispose());
+  }, [texture]);
+  const cables = useMemo(() => {
+    const y0 = SIGN_H / 2;
+    const top = CEILING - SIGN_Y;
+    return new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.6, y0, 0), new THREE.Vector3(-0.4, top, 0),
+      new THREE.Vector3(0.6, y0, 0), new THREE.Vector3(0.4, top, 0),
+    ]);
+  }, []);
+  return (
+    <group position={[6.1, SIGN_Y, -1.6]} rotation={[0, -0.62, -0.025]}>
+      <lineSegments geometry={cables}>
+        <lineBasicMaterial color="#3a3a3a" />
+      </lineSegments>
+      <mesh position={[0, 0, -0.04]}>
+        <boxGeometry args={[SIGN_W + 0.1, SIGN_H + 0.1, 0.06]} />
+        <meshStandardMaterial color="#111" metalness={0.7} roughness={0.4} />
+      </mesh>
+      <mesh>
+        <planeGeometry args={[SIGN_W, SIGN_H]} />
+        <meshBasicMaterial map={texture} toneMapped={false} />
+      </mesh>
+      <pointLight color={CYAN} intensity={2.5} distance={4} decay={1.8} position={[0, 0, 0.8]} />
+    </group>
+  );
 }
 
 // Fraction of the previous frame kept under thermal: a brief heat shimmer that clears in ~6 frames, not a smear.
@@ -285,6 +436,8 @@ const STACK_LOOKS = [
   ['#08fdd8', '#ff69b4'],
 ].map((pair) => pair.map((c) => new THREE.Color(c)));
 
+const STACK_MODES = ['01/03 BAYER 8×8', '02/03 SCAN GRAIN', '03/03 COLOUR ISP'];
+
 const clamp01 = (v) => THREE.MathUtils.clamp(v, 0, 1);
 const smooth = (a, b, x) => {
   const t = clamp01((x - a) / (b - a));
@@ -366,12 +519,12 @@ function useStations() {
  */
 function Director({ load, thermal, compact, introPanel, rig, room, globe, stations, stack, entering, onEntered, onStage, onReady }) {
   const { gl, scene, camera, size } = useThree();
-  const state = useRef({ stackY: scrollY, stackYaw: -0.6, stackPitch: 0, stackDrag: null, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null, msY: 0, lkYaw: 0, lkPitch: 0, arK: 0, wasAR: false, wasTilt: false, swapAt: -1e9, swapPos: null, swapQuat: null });
+  const state = useRef({ stackY: scrollY, stackEl: null, thermal: 0, introStart: -1, introDone: false, msX: 0, msXs: 0, ready: false, entryAt: -1, entered: false, snap: null, lastY: scrollY, vel: 0, stage: '', load: loadShown.value, tiltYaw: 0, tiltPitch: 0, tiltBase: null, msY: 0, lkYaw: 0, lkPitch: 0, arK: 0, wasAR: false, wasTilt: false, swapAt: -1e9, swapPos: null, swapQuat: null });
   const intro = useRef(null);
   const look = useMemo(() => new THREE.Vector3(0, 1.1, 0), []);
   const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), pos: new THREE.Vector3(), tgt: new THREE.Vector3(), dev: new THREE.Vector3(), q: new THREE.Quaternion(), eul: new THREE.Euler(), base: new THREE.Quaternion(), m4: new THREE.Matrix4(), gpos: new THREE.Vector3() }), []);
 
-  const { composer, bokeh, thermalPass, afterPass, controls } = useMemo(() => {
+  const { composer, bokeh, stackPass, thermalPass, afterPass, controls } = useMemo(() => {
     const composer = new EffectComposer(gl);
     composer.addPass(new RenderPass(scene, camera));
     const bokeh = compact ? null : new BokehPass(scene, camera, { focus: 9, aperture: 0.00077, maxblur: 0.01 });
@@ -393,9 +546,14 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
         proxy.visible = false;
       };
     }
+    const stackPass = new StackPass(gl, scene, camera);
+    composer.addPass(stackPass);
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.5));
     // Phones keep only the bloom: each extra pass redraws the whole screen.
-    if (!compact) composer.addPass(new FilmPass(0.55, false));
+    if (!compact) {
+      composer.addPass(new FilmPass(0.55, false));
+      composer.addPass(new ShaderPass(LensShader));
+    }
     const thermalPass = new ShaderPass(ThermalShader);
     composer.addPass(thermalPass);
     const afterPass = new AfterimagePass(THERMAL_TRAIL);
@@ -417,10 +575,11 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     if (COARSE) controls.disconnect();
     if (COARSE && !TILT_ASK) startTilt();
     gl.domElement.style.touchAction = 'pan-y';
-    return { composer, bokeh, thermalPass, afterPass, controls };
+    return { composer, bokeh, stackPass, thermalPass, afterPass, controls };
   }, []);
 
   useEffect(() => composer.setSize(size.width, size.height), [size, composer]);
+  useEffect(() => stack.setEnv(stackPass.env), [stack, stackPass]);
   useEffect(() => {
     const onMove = (e) => {
       state.current.msX = (e.clientX / innerWidth - 0.5) * 2;
@@ -630,21 +789,39 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     else if (camera.view?.enabled) camera.clearViewOffset();
 
     // Stack: while its pinned scene is on screen the workstation is composed from the river's strands, kept
-    // where the layout puts the stage box and turned by scroll and drag like the scene it replaces. Below the
-    // 900px breakpoint the box is hidden: the model then sits centred and dimmed behind the cards instead.
+    // where the layout puts the stage box, turned by scroll and by drag (with a fling and a spring back), and
+    // graded by stackPass in one of three looks picked by scroll. Below the 900px breakpoint the box is hidden:
+    // the model then sits centred and dimmed behind the cards instead.
     const stageEl = document.querySelector('.svc-stage');
     const pinEl = document.querySelector('.svc-pin');
+    const sk = (s.stk ??= { yaw: 0, pitch: 0, vYaw: 0, vPitch: 0, drag: null, turn: -0.6, mode: 0, prev: 0, trans: 1, dir: 1, hud: NaN });
     if (stageEl && stageEl !== s.stackEl) {
       s.stackEl = stageEl;
-      stageEl.addEventListener('pointerdown', (ev) => ((s.stackDrag = [ev.clientX, ev.clientY]), stageEl.setPointerCapture(ev.pointerId)));
-      stageEl.addEventListener('pointermove', (ev) => {
-        if (!s.stackDrag) return;
-        s.stackYaw += (ev.clientX - s.stackDrag[0]) * 0.002;
-        s.stackPitch = THREE.MathUtils.clamp(s.stackPitch + (ev.clientY - s.stackDrag[1]) * 0.0015, -0.87, 0.87);
-        s.stackDrag = [ev.clientX, ev.clientY];
+      stageEl.addEventListener('pointerdown', (ev) => {
+        sk.drag = [ev.clientX, ev.clientY, ev.timeStamp];
+        sk.vYaw = sk.vPitch = 0;
+        stageEl.setPointerCapture(ev.pointerId);
       });
-      stageEl.addEventListener('pointerup', () => (s.stackDrag = null));
+      stageEl.addEventListener('pointermove', (ev) => {
+        if (!sk.drag) return;
+        const dt = Math.max(8, ev.timeStamp - sk.drag[2]) / 1000;
+        const dYaw = (ev.clientX - sk.drag[0]) * 0.006;
+        const dPitch = (ev.clientY - sk.drag[1]) * 0.004;
+        sk.yaw = THREE.MathUtils.clamp(sk.yaw + dYaw, -Math.PI, Math.PI);
+        sk.pitch = THREE.MathUtils.clamp(sk.pitch + dPitch, -0.5, 0.6);
+        sk.vYaw += (dYaw / dt - sk.vYaw) * 0.5;
+        sk.vPitch += (dPitch / dt - sk.vPitch) * 0.5;
+        sk.drag = [ev.clientX, ev.clientY, ev.timeStamp];
+      });
+      const release = (ev) => {
+        // A pointer that stopped before letting go drops the model where it is instead of flinging it.
+        if (sk.drag && ev.timeStamp - sk.drag[2] > 90) sk.vYaw = sk.vPitch = 0;
+        sk.drag = null;
+      };
+      stageEl.addEventListener('pointerup', release);
+      stageEl.addEventListener('pointercancel', release);
     }
+    let stackOn = false;
     if (stageEl && pinEl) {
       const pr = pinEl.getBoundingClientRect();
       const backdrop = stageEl.getBoundingClientRect().height < 1;
@@ -652,29 +829,66 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
       // Forming spans the cards' lead-in: from the pin entering until the first card is a third of the way up.
       const lead = pinEl.querySelector('.sa-card')?.getBoundingClientRect().top ?? pr.top;
       const form = smooth(H + lead - pr.top, H * 0.7, lead) * (1 - smooth(H * 0.9, H * 0.3, pr.bottom));
-      stack.group.visible = form > 0.001;
-      if (stack.group.visible) {
-        s.stackYaw = THREE.MathUtils.clamp(s.stackYaw + (y - s.stackY) * 0.0003, -Math.PI / 2, Math.PI / 2);
+      stackOn = stack.group.visible = form > 0.001;
+      if (stackOn) {
+        const dt = Math.min(delta, 0.05);
+        const t = clock.elapsedTime;
+        const prog = clamp01(-pr.top / Math.max(1, pr.height - H));
+        if (!sk.drag) {
+          sk.vYaw += (-3.5 * sk.yaw - 2.1 * sk.vYaw) * dt;
+          sk.yaw += sk.vYaw * dt;
+          sk.vPitch += (-12 * sk.pitch - 4.2 * sk.vPitch) * dt;
+          sk.pitch += sk.vPitch * dt;
+        }
+        sk.turn += (-0.62 + prog * 1.1 - sk.turn) * (1 - Math.exp(-dt * 5));
         const depth = 6;
         const toWorld = (2 * depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / H;
         camera.updateMatrixWorld();
         stack.group.position.set((r.left + r.width / 2 - innerWidth / 2) * toWorld, (H / 2 - r.top - r.height / 2) * toWorld, -depth);
         camera.localToWorld(stack.group.position);
-        stack.group.quaternion.copy(camera.quaternion).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(s.stackPitch, s.stackYaw, 0)));
-        stack.group.scale.setScalar(backdrop ? (0.85 * innerWidth * toWorld) / stack.width : (0.55 * r.height * toWorld) / stack.height);
+        stack.group.quaternion.copy(camera.quaternion);
+        stack.model.rotation.set(0.24 + sk.pitch + 0.015 * Math.sin(t * 0.5), sk.turn + sk.yaw + 0.03 * Math.sin(t * 0.31), 0);
+        stack.group.scale.setScalar(backdrop ? (0.85 * innerWidth * toWorld) / stack.width : 0.8 * Math.min(r.height / stack.height, r.width / stack.width) * toWorld);
         thread.uniforms.uStack.value.set((r.left + r.width / 2 - innerWidth / 2) * toWorld, (H / 2 - r.top - r.height / 2) * toWorld, -depth, (stack.group.scale.x * stack.width) / 2);
-        stack.uniforms.uOpacity.value = backdrop ? 0.4 : 1;
-        thread.uniforms.uHaloA.value = backdrop ? 0.1 : 0.35;
+        stack.solid.value = smooth(0.45, 1, form);
+        stack.uniforms.uOpacity.value = 1 - 0.45 * stack.solid.value;
+        thread.uniforms.uHaloA.value = backdrop ? 0.04 : 0.06;
         stack.uniforms.uForm.value = form;
-        stack.uniforms.uTime.value = clock.elapsedTime;
-        stack.screen.material.opacity = smooth(0.7, 1, form);
-        // Same three looks at the same scroll points as before: grey, then cyan, then cyan and pink.
-        const prog = clamp01(-pr.top / Math.max(1, pr.height - H));
-        const mode = prog < 2.7 / 7 ? 0 : prog < 4 / 7 ? 1 : 2;
+        stack.uniforms.uTime.value = t;
+        stack.tick(t, dt);
+        const mode = prog < 0.38 ? 0 : prog < 0.68 ? 1 : 2;
+        if (mode !== sk.mode) {
+          sk.prev = sk.mode;
+          sk.dir = mode > sk.mode ? 1 : -1;
+          sk.mode = mode;
+          sk.trans = 0;
+        }
+        // Scan grain -> colour cuts in a couple of torn frames; leaving the dither gets the full climbing tear.
+        const cut = sk.mode + sk.prev === 3;
+        sk.trans = Math.min(1, sk.trans + dt / (cut ? 0.12 : 0.42));
         stack.uniforms.uColA.value.lerp(STACK_LOOKS[mode][0], 0.08);
         stack.uniforms.uColB.value.lerp(STACK_LOOKS[mode][1], 0.08);
+        const pu = stackPass.uniforms;
+        const dpr = pu.uRes.value.x / innerWidth;
+        pu.uRect.value.set(r.left * dpr, (H - r.top - r.height) * dpr, (r.left + r.width) * dpr, (H - r.top) * dpr);
+        pu.uMode.value = sk.mode;
+        pu.uPrev.value = sk.prev;
+        pu.uTrans.value = sk.trans;
+        pu.uDir.value = sk.dir;
+        pu.uTime.value = t;
+        pu.uPx.value = Math.max(2, Math.round(3 * dpr));
+        pu.uGain.value = backdrop ? 0.4 : 1;
+        pu.uBand.value = cut ? 0.6 : 0.16;
+        stack.grid.value = sk.mode === 0 ? 1 : 0;
+        const deg = Math.round(THREE.MathUtils.radToDeg(stack.model.rotation.y));
+        if (deg * 4 + sk.mode !== sk.hud) {
+          sk.hud = deg * 4 + sk.mode;
+          stageEl.dataset.mode = STACK_MODES[sk.mode];
+          stageEl.dataset.yaw = `YAW ${deg < 0 ? '-' : '+'}${String(Math.abs(deg)).padStart(3, '0')}°`;
+        }
       }
     }
+    stackPass.enabled = stackOn;
     s.stackY = y;
 
     // Strands: knot -> floor, the dive river and the globe shell.
@@ -865,6 +1079,7 @@ export default function World({ thermal, progress, entering, onEntered, onReady,
           <GrowRoom thermal={thermal} compact={compact} />
           <group ref={rig}>
             <NeonBars />
+            {!compact && <Sign />}
             {layout.map((pos, i) => (
               <Panel key={REEL[i].title} src={clip(i)} poster={REEL[i].poster} position={pos} index={i} active={stage === 'hero' || arOn} onSelect={select} register={register} />
             ))}

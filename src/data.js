@@ -41,6 +41,8 @@ export const PROJECTS = [
     ],
     stack: ['Python', 'LangGraph', 'FastMCP', 'GraphQL', 'Next.js', 'PostgreSQL', 'Celery', 'Docker'],
     poster: media('Images/placeholder.svg'),
+    // No recording yet: the card runs the Stack section's live agent-graph canvas instead.
+    art: 'graph',
   },
   {
     title: 'SF Showing — 3D Art Gallery',
@@ -107,6 +109,7 @@ export const PROJECTS = [
     ],
     stack: ['Django Channels', 'WebSockets', 'Nginx', 'Gunicorn', 'Tailwind', 'Three.js'],
     video: media('video/chatroom.mp4'),
+    light: true,
     poster: media('Images/portfolio-logos/ChatroomLogo.jpg'),
   },
   {

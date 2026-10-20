@@ -22,7 +22,7 @@ export function Services() {
       <div className="svc-pin">
         <div className="svc-scene">
           <div className="svc-stage" />
-          <p className="svc-meta nav-font">WebGL · three.js · procedural · post FX — scroll to change the look, drag to rotate</p>
+          <p className="svc-meta nav-font">Scroll to change the look · drag to rotate</p>
         </div>
         <div className="svc-grid" ref={cards}>
           {[0, 3].map((g) => (
@@ -73,6 +73,21 @@ function PreviewVideo({ src, poster, label }) {
   return <video ref={ref} src={src} poster={near ? poster : undefined} muted loop playsInline preload="none" aria-label={label} />;
 }
 
+function ProjectArt({ art }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    let dispose;
+    let cancelled = false;
+    import('../fx/serviceArt').then(({ runServiceArt }) => !cancelled && (dispose = runServiceArt(ref.current)));
+    return () => ((cancelled = true), dispose?.());
+  }, []);
+  return (
+    <div className="pj-media art" ref={ref}>
+      <canvas data-art={art} aria-hidden="true" />
+    </div>
+  );
+}
+
 function Demo({ d, i }) {
   return (
     <figure className="demo">
@@ -99,11 +114,15 @@ export function Work() {
             </p>
             <h3 className="pj-title rise">{p.title}</h3>
             <p className="pj-copy">{p.summary}</p>
-            <div className="pj-media">
-              <PreviewVideo src={p.video} poster={p.poster} label={`${p.title} preview`} />
-              <img className="pj-split r" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
-              <img className="pj-split c" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
-            </div>
+            {p.art ? (
+              <ProjectArt art={p.art} />
+            ) : (
+              <div className={p.light ? 'pj-media light' : 'pj-media'}>
+                <PreviewVideo src={p.video} poster={p.poster} label={`${p.title} preview`} />
+                <img className="pj-split r" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+                <img className="pj-split c" src={p.poster} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+              </div>
+            )}
             <p className="pj-tag">{p.tagline}</p>
             <div className="ar-side r ar-wrap">
             <p className="pj-done-h nav-font">Key deliverables</p>

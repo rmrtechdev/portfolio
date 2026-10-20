@@ -1,9 +1,21 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { DISCIPLINES, GIANT_LEAD, HOME, MARQUEE, REEL } from '../data';
+import { DISCIPLINES, GIANT_LEAD, HOME, MARQUEE, REEL, SOCIALS, openMail } from '../data';
 import { COARSE, REDUCED, THREE_D, TILT_ASK, WEBGL, ar, setAR, startTilt } from '../env';
 import { Trail } from '../fx/FxLayer';
 import { useInView } from '../fx/hooks';
 import { loadVisits } from '../fx/visitors';
+
+const LINKS = [
+  // The GitHub mark is a filled roundel, so it replaces the outline circle instead of sitting inside one.
+  { label: 'GitHub', note: 'Code', href: SOCIALS[0].href, mark: true, icon: <path className="mark" transform="translate(.5 .5) scale(.958)" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3" /> },
+  {
+    label: 'LinkedIn',
+    note: 'Profile',
+    href: SOCIALS[1].href,
+    icon: <path d="M12 11.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.5 19c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5" />,
+  },
+  { label: 'Email', note: 'Direct', href: '#contact', onClick: openMail, icon: <path d="M5 7.5h14v9H5zM5 8l7 5 7-5" /> },
+];
 
 // Only for reduced motion: everyone else gets the globe inside the shared world (three/World.jsx).
 const Globe = lazy(() => import('../three/Globe'));
@@ -12,7 +24,7 @@ const Globe = lazy(() => import('../three/Globe'));
 export function Hero({ thermal, onThermal }) {
   const [tiltAsk, setTiltAsk] = useState(THREE_D && COARSE && TILT_ASK);
   useEffect(() => {
-    const hide = () => setTiltAsk(!ar.on);
+    const hide = () => setTiltAsk(THREE_D && COARSE && TILT_ASK && !ar.on);
     addEventListener('rmr-ar', hide);
     return () => removeEventListener('rmr-ar', hide);
   }, []);
@@ -42,6 +54,27 @@ export function Hero({ thermal, onThermal }) {
           <span aria-hidden="true">◎</span> Tilt to look
         </button>
       )}
+      <nav className="hero-links nav-font" aria-label="Elsewhere">
+        <ul>
+          {LINKS.map((b, k) => (
+            <li key={b.label}>
+              <a
+                href={b.href}
+                aria-label={b.label}
+                onClick={b.onClick}
+                {...(b.href.startsWith('http') && { target: '_blank', rel: 'noreferrer' })}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  {!b.mark && <circle cx="12" cy="12" r="11" />}
+                  {b.icon}
+                </svg>
+                <span className="hl-k">0{k + 1} / {b.note}</span>
+                <span className="hl-t">{b.label} <i>↗</i></span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
       <p className="hero-kicker nav-font">
         <span className="dot" /> Open to roles — New York City / remote
       </p>
@@ -65,7 +98,7 @@ export function Hero({ thermal, onThermal }) {
   );
 }
 
-/** Types each item, holds, backspaces, then moves to the next, looping while `active`. */
+/** Types each item, holds, backspaces, then moves to the next, looping while `active`; returns the index and typed text. */
 function useRotatingType(items, active) {
   const [i, setI] = useState(0);
   const [n, setN] = useState(0);
@@ -80,12 +113,12 @@ function useRotatingType(items, active) {
     const id = setTimeout(next, delay);
     return () => clearTimeout(id);
   }, [active, i, n, deleting]);
-  return REDUCED ? items[0] : items[i].slice(0, n);
+  return REDUCED ? { i: 0, shown: items[0] } : { i, shown: items[i].slice(0, n) };
 }
 
 export function Specializing({ visitors, onVisitors }) {
   const [ref, inView] = useInView({ threshold: 0 });
-  const shown = useRotatingType(DISCIPLINES, inView);
+  const { i: current, shown } = useRotatingType(DISCIPLINES, inView);
 
   // Fetched the first time the globe is on screen, so it never competes with the hero.
   useEffect(() => {
@@ -98,11 +131,19 @@ export function Specializing({ visitors, onVisitors }) {
       <div className="giant rise">
         <p className="giant-line" aria-label={`${GIANT_LEAD} ${DISCIPLINES.join(', ')}`}>
           <span className="giant-lead" aria-hidden="true">{GIANT_LEAD}</span>
-          <span className="giant-slot" aria-hidden="true">
-            {shown}
-            <span className="giant-caret" />
-          </span>
         </p>
+        {/* gobold's stack: every discipline stays on the wall in ghost grey; the one being typed lights up. */}
+        <ul className="spec-list" aria-hidden="true">
+          {DISCIPLINES.map((d, k) => (
+            <li key={d} className={k === current ? 'on' : undefined}>
+              <span className="spec-plus">+</span>
+              <span className="spec-text" data-full={d}>
+                {k === current ? shown : d}
+              </span>
+              <span className="giant-caret" />
+            </li>
+          ))}
+        </ul>
       </div>
       <p className="spec-hint nav-font">
         Drag or click the globe

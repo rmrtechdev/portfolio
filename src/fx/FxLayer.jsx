@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { COARSE, REDUCED } from '../env';
+import { COARSE, REDUCED, ar } from '../env';
+import { SECTIONS } from '../chrome/Chrome';
 
 // Blur then alpha-threshold: rounds glyph corners into the "melted" display type.
 const thresh = (id, blur, slope, offset) => (
@@ -59,6 +60,119 @@ export function RgbBlur() {
   );
 }
 
+/** Edge falloff over the world but under the page, so the room and strands recede while copy stays lit. */
+export function Vignette() {
+  return <div className="vignette" aria-hidden="true" />;
+}
+
+// [selector, rate]: far layers that lag the scroll on the way in. Marquees stay out: they butt against the
+// bands either side of them (the game right after the first one), so any offset would push into a neighbour.
+const LAYERS = [['.section > .head', -0.22]];
+// Hero UI lifts away at its own rates as the first screen scrolls off.
+const HERO = [
+  ['.hero-ring', 0.5],
+  ['.hero-links', 0.3],
+  ['.hero-kicker', 0.22],
+  ['.hud-toggle', 0.12],
+];
+
+/**
+ * Glass in front of everything (scanlines, grain, edge fringe, two slow light shafts), a scene cut on each
+ * section change (with the new section's name sweeping past out of focus, in front of the page), and the
+ * page's parallax. Parallax writes the `translate` property only: World.jsx owns
+ * `transform` on the heads and marquees in AR, and AR turns parallax off.
+ */
+export function Atmosphere() {
+  const root = useRef(null);
+  const fore = useRef(null);
+  useEffect(() => {
+    if (REDUCED) return;
+    const el = root.current;
+    let last;
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (!e.isIntersecting || e.target.id === last) return;
+          // Stack's pinned scene opens on its own signal tear; a cut on top of it muddies both.
+          if (last && e.target.id !== 'services') {
+            const name = SECTIONS.find(([id]) => id === e.target.id)[1];
+            fore.current.querySelectorAll('span').forEach((n) => (n.textContent = name));
+            el.classList.remove('cut');
+            void el.offsetWidth;
+            el.classList.add('cut');
+          }
+          last = e.target.id;
+        }),
+      { rootMargin: '-45% 0px -50% 0px' }
+    );
+    SECTIONS.forEach(([id]) => io.observe(document.getElementById(id)));
+
+    let items = [];
+    let hero = [];
+    let raf = 0;
+    let parked = false;
+    // offsetTop, not the bounding box: the box includes the .rise entrance and the AR turn.
+    const top = (n) => (n ? n.offsetTop + top(n.offsetParent) : 0);
+    const measure = () => {
+      items = LAYERS.flatMap(([sel, k]) =>
+        [...document.querySelectorAll(sel)].map((n) => ({ el: n, k, mid: top(n) + n.offsetHeight / 2 }))
+      );
+      hero = HERO.flatMap(([sel, k]) => [...document.querySelectorAll(`.hero ${sel}`)].map((n) => ({ el: n, k })));
+      raf ||= requestAnimationFrame(update);
+    };
+    const update = () => {
+      raf = 0;
+      if (ar.on) {
+        if (!parked) [...items, ...hero].forEach((it) => (it.el.style.translate = it.el.style.opacity = ''));
+        parked = true;
+        return;
+      }
+      parked = false;
+      const y = scrollY;
+      const c = y + innerHeight / 2;
+      for (const it of items) {
+        // Settles by the screen's centre, so a head never sinks into the content under it (Stack's pinned
+        // scene starts right after its head).
+        const d = Math.max(0, it.mid - c);
+        if (Math.abs(d) < innerHeight * 1.5) it.el.style.translate = `0 ${(d * it.k).toFixed(1)}px`;
+      }
+      const h = Math.min(y, innerHeight);
+      for (const it of hero) {
+        it.el.style.translate = `0 ${(-h * it.k).toFixed(1)}px`;
+        it.el.style.opacity = Math.max(0, 1 - (h / innerHeight) * 1.6).toFixed(3);
+      }
+    };
+    const onScroll = () => (raf ||= requestAnimationFrame(update));
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('rmr-ar', measure);
+    return () => {
+      io.disconnect();
+      ro.disconnect();
+      cancelAnimationFrame(raf);
+      removeEventListener('scroll', onScroll);
+      removeEventListener('rmr-ar', measure);
+    };
+  }, []);
+  return (
+    <div className="atmo" ref={root} aria-hidden="true">
+      <i className="atmo-shaft" />
+      <i className="atmo-scan" />
+      <i className="atmo-grain" />
+      <i className="atmo-fringe" />
+      <i className="atmo-dim" />
+      <i className="atmo-wipe" />
+      <b className="atmo-fore" ref={fore}>
+        <span className="f-smear" />
+        <span className="f-rim" />
+        <span className="f-rim2" />
+        <span className="f-body" />
+      </b>
+    </div>
+  );
+}
+
 const HOT_TARGET = 'a, button, input, textarea, label, [role="button"], .moving, .svc-stage, .snake-overlay';
 
 /**
@@ -68,6 +182,7 @@ const HOT_TARGET = 'a, button, input, textarea, label, [role="button"], .moving,
 export function GlitchCursor() {
   const cyan = useRef(null);
   const pink = useRef(null);
+  const light = useRef(null);
   useEffect(() => {
     if (COARSE || REDUCED) return;
     const p = { x: -100, y: -100 };
@@ -94,6 +209,7 @@ export function GlitchCursor() {
       cyan.current.style.transform = `translate3d(${c.x - dx * k}px,${c.y - dy * k}px,0) skewX(${skew}deg) scale(${scale})`;
       pink.current.style.transform = `translate3d(${c.x + dx * k}px,${c.y + dy * k}px,0) skewX(${-skew}deg) scale(${scale})`;
       pink.current.style.opacity = hot ? 1 : 0.25 + (speed / 32) * 0.75;
+      light.current.style.transform = `translate3d(${c.x}px,${c.y}px,0)`;
     };
     addEventListener('pointermove', onMove, { passive: true });
     document.documentElement.addEventListener('pointerleave', onLeave);
@@ -109,6 +225,7 @@ export function GlitchCursor() {
     <div className="gcursor" aria-hidden="true">
       <i ref={cyan} />
       <i ref={pink} />
+      <b ref={light} />
     </div>
   );
 }
