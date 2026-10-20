@@ -37,6 +37,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: ['minimac', 'minimac.tail279361.ts.net'],
     https: process.env.DEV_HTTPS ? { key: readFileSync('.cert/key.pem'), cert: readFileSync('.cert/cert.pem') } : undefined,
   },
   // Tailnet names used by `tailscale serve` to reach the preview from other devices.
