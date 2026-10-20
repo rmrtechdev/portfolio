@@ -10,7 +10,7 @@ import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { COARSE, TILT_ASK, ar, jarvisLink, loadShown, startTilt, tilt } from '../env';
+import { COARSE, ar, jarvisLink, loadShown, tilt } from '../env';
 import { HOME, PROJECTS, REEL } from '../data';
 import { Earth } from './Globe';
 import { plantGeometry, plantRows } from './growRoom';
@@ -573,7 +573,6 @@ function Director({ load, thermal, compact, introPanel, rig, room, globe, statio
     });
     // OrbitControls claims every touch (touch-action: none); on phones the page must scroll instead.
     if (COARSE) controls.disconnect();
-    if (COARSE && !TILT_ASK) startTilt();
     gl.domElement.style.touchAction = 'pan-y';
     return { composer, bokeh, stackPass, thermalPass, afterPass, controls };
   }, []);

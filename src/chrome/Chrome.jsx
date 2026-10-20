@@ -65,8 +65,8 @@ export function TopBar({ started }) {
   }, []);
   // requestPermission has to be called inside the click's user gesture, so this can't wait for an effect.
   const toggleAR = async () => {
-    // Android's look-around is on by default and stays on; iOS's only ever runs with AR.
-    if (ar.on) return TILT_ASK && stopTilt(), setAR(false);
+    // Look-around is part of AR, so it never runs while AR is off.
+    if (ar.on) return stopTilt(), setAR(false);
     // Without motion access a phone can't look around, so it stays on the regular scroll flight.
     if (COARSE && TILT_ASK && (await DeviceOrientationEvent.requestPermission().catch(() => null)) !== 'granted') return;
     if (COARSE) startTilt();

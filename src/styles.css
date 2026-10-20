@@ -721,9 +721,6 @@ button {
     color: #000;
   }
 }
-.tilt-toggle {
-  top: calc(45% + 3em);
-}
 .hero-kicker {
   position: absolute;
   left: 92px;
@@ -733,59 +730,29 @@ button {
   gap: 10px;
   color: var(--fg);
 }
-/* The off-site links, set as one HUD block with the kicker under it on the hero's empty floor. */
-/* Its own pane of dark glass with corner ticks, so it reads as an instrument over the room, not loose links. */
 .hero-links {
   position: absolute;
-  left: 78px;
-  bottom: calc(clamp(70px, 9vw, 130px) + 40px);
-  z-index: 5;
-  padding: 10px 12px 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(var(--cyan), var(--cyan)) left top / 12px 1px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) left top / 1px 12px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) right top / 12px 1px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) right top / 1px 12px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) left bottom / 12px 1px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) left bottom / 1px 12px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) right bottom / 12px 1px no-repeat,
-    linear-gradient(var(--cyan), var(--cyan)) right bottom / 1px 12px no-repeat,
-    rgba(3, 5, 6, 0.66);
-  background-origin: border-box;
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-}
-.hero-links::before {
-  content: '// Elsewhere' / '';
-  display: block;
-  margin-bottom: 8px;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--dim);
+  left: 86px;
+  bottom: calc(clamp(70px, 9vw, 130px) + 34px);
 }
 .hero-links ul {
   display: flex;
   gap: 6px;
 }
 .hero-links a {
-  display: grid;
-  grid-template-columns: 28px auto;
-  column-gap: 10px;
-  align-items: center;
-  padding: 8px 16px 8px 9px;
-  text-decoration: none;
+  display: block;
+  width: 36px;
+  height: 36px;
   color: var(--mid);
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(var(--cyan-rgb), 0.22);
-  box-shadow: inset 2px 0 0 var(--cyan);
-  transition: color 0.2s, border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+  transition: color 0.2s;
+}
+.hero-links a:hover,
+.hero-links a:focus-visible {
+  color: var(--pink);
 }
 .hero-links svg {
-  grid-row: 1 / 3;
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  height: 100%;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.1;
@@ -795,41 +762,6 @@ button {
 .hero-links .mark {
   fill: currentColor;
   stroke: none;
-}
-.hl-k {
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-.hl-t {
-  font-size: 0.76rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg);
-  white-space: nowrap;
-}
-.hl-t i {
-  display: inline-block;
-  font-style: normal;
-  color: var(--cyan);
-  transition: transform 0.2s cubic-bezier(0.2, 1, 0.3, 1);
-}
-.hero-links a:focus-visible {
-  outline-offset: 3px;
-  border-color: var(--cyan);
-}
-@media (hover: hover) {
-  .hero-links a:hover {
-    color: var(--pink);
-    border-color: rgba(var(--pink-rgb), 0.7);
-    background-color: rgba(var(--pink-rgb), 0.08);
-    box-shadow: inset 2px 0 0 var(--pink);
-  }
-  .hero-links a:hover .hl-t i {
-    color: var(--pink);
-    transform: translate(2px, -2px);
-  }
 }
 .dot {
   width: 7px;
@@ -927,7 +859,7 @@ button {
 .giant-line {
   font: 800 clamp(3rem, 8.6vw, 9.6rem) / 0.88 var(--display);
   text-transform: uppercase;
-  color: #2e2f31;
+  color: #7a7d83;
   filter: url(#threshStrong);
   text-shadow: none;
 }
@@ -940,7 +872,7 @@ button {
 }
 .spec-list li {
   white-space: nowrap;
-  color: #2f3134;
+  color: #8a8d93;
   filter: url(#thresh);
   transition: color 0.3s;
 }
@@ -2294,26 +2226,22 @@ body {
   .hero-kicker {
     left: var(--gutter);
   }
-  /* No backdrop blur on phones (see the cards below); the pane just gets denser. */
+  /* One block with the kicker: icons first, the line beside them, so neither floats alone. */
   .hero-links {
-    left: var(--gutter);
-    right: var(--gutter);
-    bottom: 52px;
-    padding: 8px;
-    background-color: rgba(3, 5, 6, 0.8);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-  .hero-links ul {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    left: calc(var(--gutter) - 4px);
+    bottom: 14px;
   }
   .hero-links a {
-    grid-template-columns: auto;
-    padding: 7px 8px 7px 10px;
+    width: 30px;
+    height: 30px;
   }
-  .hero-links svg {
-    display: none;
+  .hero .hero-kicker {
+    left: calc(var(--gutter) + 112px);
+    right: var(--gutter);
+    bottom: 14px;
+    min-height: 30px;
+    font-size: 0.68rem;
+    line-height: 1.35;
   }
   .hero-fallback {
     grid-template-columns: 1fr;

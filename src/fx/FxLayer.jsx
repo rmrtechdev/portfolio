@@ -68,11 +68,10 @@ export function Vignette() {
 // [selector, rate]: far layers that lag the scroll on the way in. Marquees stay out: they butt against the
 // bands either side of them (the game right after the first one), so any offset would push into a neighbour.
 const LAYERS = [['.section > .head', -0.22]];
-// Hero UI lifts away at its own rates as the first screen scrolls off.
+// Hero UI lifts away at its own rates as the first screen scrolls off. The links and the kicker stay out: on
+// phones the lag left them hanging over About after the hero had gone.
 const HERO = [
   ['.hero-ring', 0.5],
-  ['.hero-links', 0.3],
-  ['.hero-kicker', 0.22],
   ['.hud-toggle', 0.12],
 ];
 
