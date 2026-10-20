@@ -871,30 +871,31 @@ function reticle(ctx, s) {
   if (s.hover < 0.05 || !s.inside) return;
   const x = Math.round(s.lx) + 0.5;
   const y = Math.round(s.ly) + 0.5;
-  ctx.globalAlpha = 0.85 * s.hover;
+  ctx.globalAlpha = s.hover;
   ctx.strokeStyle = HOT;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(x - 11, y);
-  ctx.lineTo(x - 4, y);
-  ctx.moveTo(x + 4, y);
-  ctx.lineTo(x + 11, y);
-  ctx.moveTo(x, y - 11);
-  ctx.lineTo(x, y - 4);
-  ctx.moveTo(x, y + 4);
-  ctx.lineTo(x, y + 11);
+  ctx.moveTo(x - 22, y);
+  ctx.lineTo(x - 13, y);
+  ctx.moveTo(x + 13, y);
+  ctx.lineTo(x + 22, y);
+  ctx.moveTo(x, y - 22);
+  ctx.lineTo(x, y - 13);
+  ctx.moveTo(x, y + 13);
+  ctx.lineTo(x, y + 22);
   ctx.stroke();
-  ctx.globalAlpha = 0.18 * s.hover;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.3 * s.hover;
   ctx.beginPath();
   ctx.moveTo(0, y);
   ctx.lineTo(s.w, y);
   ctx.moveTo(x, 0);
   ctx.lineTo(x, s.h);
   ctx.stroke();
-  ctx.globalAlpha = 0.8 * s.hover;
+  ctx.globalAlpha = 0.95 * s.hover;
   ctx.fillStyle = CY;
-  ctx.font = '9px "Kode Mono", ui-monospace, monospace';
-  ctx.fillText(`${s.mx >= 0 ? '+' : ''}${s.mx.toFixed(2)} ${s.my >= 0 ? '+' : ''}${(-s.my).toFixed(2)}`, x + 8, y - 8);
+  ctx.font = '10px "Kode Mono", ui-monospace, monospace';
+  ctx.fillText(`${s.mx >= 0 ? '+' : ''}${s.mx.toFixed(2)} ${s.my <= 0 ? '+' : ''}${(-s.my).toFixed(2)}`, x + 16, y - 14);
 }
 
 /** Animates every `[data-art]` canvas under `root` while it is on screen. Returns a dispose function. */
@@ -950,9 +951,8 @@ export function runServiceArt(root) {
     s.inside = false;
     s.lx = s.ly = -1e4;
   };
-  window.__sa = items;
   const handlers = items.map((s) => [s.card, move(s), leave(s)]);
-  handlers.forEach(([el, mv, lv]) => (el.addEventListener('pointermove', mv), el.addEventListener('pointerleave', lv)));
+  handlers.forEach(([el, mv, lv]) => (el.addEventListener('pointerenter', mv), el.addEventListener('pointermove', mv), el.addEventListener('pointerleave', lv)));
 
   /* Cheap bloom: the frame shrunk to a quarter and a twelfth with bilinear filtering, then stretched back over
      itself additively, so hot cores spill a soft halo the way the CRT phosphor on the rest of the page does. */
@@ -1027,6 +1027,6 @@ export function runServiceArt(root) {
     cancelAnimationFrame(raf);
     io.disconnect();
     ro.disconnect();
-    handlers.forEach(([el, mv, lv]) => (el.removeEventListener('pointermove', mv), el.removeEventListener('pointerleave', lv)));
+    handlers.forEach(([el, mv, lv]) => (el.removeEventListener('pointerenter', mv), el.removeEventListener('pointermove', mv), el.removeEventListener('pointerleave', lv)));
   };
 }
